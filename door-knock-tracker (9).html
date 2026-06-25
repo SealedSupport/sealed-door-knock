@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
+<title>Sealed Door Knock</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#f5f6f8;--surface:#fff;--surface2:#f0f1f4;--border:#e2e4ea;
+    --accent:#1d3fbb;--text:#0f1117;--text-dim:#6b7280;
+    --completed:#16a34a;--no-access:#ea580c;--not-interested:#dc2626;--tenanted:#7c3aed;
+    --radius:14px;--font:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif
+  }
+  body{font-family:var(--font);background:var(--bg);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding-top:max(env(safe-area-inset-top),12px);padding-bottom:10px;padding-left:16px;padding-right:16px;display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:100}
+  .topbar-logo{font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--accent);text-transform:uppercase;flex-shrink:0}
+  .suburb-tabs{display:flex;gap:5px;flex:1;overflow-x:auto;scrollbar-width:none}
+  .suburb-tabs::-webkit-scrollbar{display:none}
+  .suburb-tab{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s}
+  .suburb-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .icon-btn{width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .sync-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;box-shadow:0 0 0 2px #dcfce7;transition:all .3s}
+  .sync-dot.offline{background:#9ca3af;box-shadow:0 0 0 2px #f3f4f6}
+  .sync-dot.syncing{background:#f59e0b;box-shadow:0 0 0 2px #fef3c7;animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  .section-row{background:var(--surface);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+  .section-row::-webkit-scrollbar{display:none}
+  .section-pill{padding:4px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s}
+  .section-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  #map{flex:1;z-index:1}
+
+  .legend{position:absolute;top:12px;right:12px;z-index:500;background:rgba(255,255,255,.96);border:1px solid var(--border);border-radius:12px;padding:10px 13px;box-shadow:0 2px 12px rgba(0,0,0,.1)}
+  .legend-item{display:flex;align-items:center;gap:8px;margin-bottom:5px;color:var(--text);font-weight:600;font-size:11px}
+  .legend-item:last-child{margin-bottom:0}
+  .legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+
+  .count-badge{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:500;background:rgba(255,255,255,.97);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:var(--text-dim);box-shadow:0 2px 10px rgba(0,0,0,.1);white-space:nowrap;display:flex;gap:10px;align-items:center}
+  .count-dot{display:flex;align-items:center;gap:4px}
+  .count-circle{width:8px;height:8px;border-radius:50%}
+
+  .sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:1000}
+  .sheet-overlay.open{display:block}
+  .bottom-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:20px 20px 0 0;padding-bottom:max(env(safe-area-inset-bottom),24px);z-index:1001;transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1);box-shadow:0 -4px 30px rgba(0,0,0,.12)}
+  .bottom-sheet.open{transform:translateY(0)}
+  .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 0}
+  .sheet-header{padding:14px 20px 12px;border-bottom:1px solid var(--border)}
+  .sheet-address{font-size:16px;font-weight:700;margin-bottom:2px}
+  .sheet-suburb-line{font-size:12px;color:var(--text-dim);font-weight:500}
+  .sheet-body{padding:14px 20px 0}
+  .sheet-lbl{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px}
+
+  /* 4 status buttons in 2x2 grid */
+  .status-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .status-btn{padding:11px 8px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all .15s;text-align:center;line-height:1.2}
+  .status-btn:active{transform:scale(.96)}
+  .status-btn .s-emoji{font-size:20px}
+  .status-btn.sel-completed{border-color:var(--completed);background:#dcfce7;color:var(--completed)}
+  .status-btn.sel-no_access{border-color:var(--no-access);background:#fff3ea;color:var(--no-access)}
+  .status-btn.sel-not_interested{border-color:var(--not-interested);background:#fee2e2;color:var(--not-interested)}
+  .status-btn.sel-tenanted{border-color:var(--tenanted);background:#f3e8ff;color:var(--tenanted)}
+
+  .sheet-note{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:14px;font-family:var(--font);resize:none;outline:none;margin-bottom:12px}
+  .sheet-note:focus{border-color:var(--accent)}
+  .sheet-note::placeholder{color:var(--text-dim)}
+  .sheet-save{width:100%;background:var(--accent);color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:6px}
+  .sheet-save:active{opacity:.8}
+  .sheet-delete{display:none;width:100%;background:none;border:none;color:var(--not-interested);font-size:13px;font-weight:600;cursor:pointer;padding:8px;text-align:center}
+
+  .stats-panel{display:none;position:fixed;inset:0;background:var(--bg);z-index:2000;overflow-y:auto;padding:60px 20px 40px}
+  .stats-panel.open{display:block}
+  .stats-close{position:fixed;top:max(env(safe-area-inset-top),14px);right:16px;background:var(--surface);border:1.5px solid var(--border);border-radius:9px;color:var(--text);font-size:15px;padding:6px 13px;cursor:pointer;z-index:2001;font-weight:700}
+  .stats-title{font-size:24px;font-weight:800;margin-bottom:4px}
+  .stats-sub{color:var(--text-dim);font-size:13px;margin-bottom:20px}
+  .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center}
+  .stat-val{font-size:26px;font-weight:800;line-height:1}
+  .stat-lbl{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-top:3px}
+  .stats-hdr{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin:16px 0 8px}
+  .prog-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:7px}
+  .prog-top{display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:7px}
+  .prog-count{color:var(--text-dim);font-size:12px}
+  .prog-bg{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+  .prog-fill{height:100%;border-radius:3px;transition:width .5s}
+
+  .toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%) translateY(16px);background:#0f1117;color:#fff;border-radius:20px;padding:10px 18px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:all .25s;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .leaflet-container{font-family:var(--font)}
+  .location-btn{position:absolute;bottom:60px;right:12px;z-index:500;width:40px;height:40px;border-radius:50%;background:white;border:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer}
+  .you-are-here{width:20px;height:20px;border-radius:50%;background:#1d3fbb;border:3px solid white;box-shadow:0 0 0 3px rgba(29,63,187,.3),0 2px 8px rgba(0,0,0,.3)}
+  .section-lbl-div{background:rgba(29,63,187,.1);border:1.5px solid rgba(29,63,187,.4);color:#1d3fbb;font-weight:800;font-size:12px;border-radius:7px;padding:3px 9px;font-family:-apple-system,sans-serif;white-space:nowrap}
+  .draw-bar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:600;background:white;border-top:3px solid #f97316;padding:12px 16px max(env(safe-area-inset-bottom),12px);gap:8px;align-items:center;box-shadow:0 -4px 20px rgba(249,115,22,.2)}
+  .draw-bar-label{font-size:12px;font-weight:700;color:#f97316;flex:1}
+  .draw-btn{padding:8px 14px;border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer}
+  .draw-btn-undo{background:var(--surface2);color:var(--text)}
+  .draw-btn-done{background:#16a34a;color:white}
+  .draw-btn-cancel{background:var(--surface2);color:var(--not-interested)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">Sealed</div>
+  <div class="suburb-tabs">
+    <button class="suburb-tab active" onclick="switchSuburb('highett',this)">Highett</button>
+    <button class="suburb-tab" onclick="switchSuburb('cheltenham',this)">Cheltenham</button>
+    <button class="suburb-tab" onclick="switchSuburb('mentone',this)">Mentone</button>
+  </div>
+  <div class="sync-dot" id="syncDot"></div>
+  <button class="icon-btn" onclick="openStats()">📊</button>
+  <button class="icon-btn" onclick="clearSections()" title="Clear sections">🗑️</button>
+</div>
+
+<div class="section-row" id="sectionRow"></div>
+<div id="map"></div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--completed)"></div>Completed</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--no-access)"></div>No Access</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--not-interested)"></div>Not Interested</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--tenanted)"></div>Tenanted</div>
+</div>
+
+<button class="location-btn" onclick="locateMe()" title="Find my location">📍</button>
+
+<div class="count-badge">
+  <span class="count-dot"><span class="count-circle" style="background:var(--completed)"></span><span id="cC">0</span></span>
+  <span class="count-dot"><span class="count-circle" style="background:var(--no-access)"></span><span id="cN">0</span></span>
+  <span class="count-dot"><span class="count-circle" style="background:var(--not-interested)"></span><span id="cNI">0</span></span>
+  <span class="count-dot"><span class="count-circle" style="background:var(--tenanted)"></span><span id="cT">0</span></span>
+  <span style="color:var(--text-dim);font-size:11px">today</span>
+</div>
+
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet()"></div>
+<div class="bottom-sheet" id="bottomSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-address" id="sheetAddress">📍 Loading…</div>
+    <div class="sheet-suburb-line" id="sheetSuburbLine"></div>
+  </div>
+  <div class="sheet-body">
+    <div class="sheet-lbl">Mark this property</div>
+    <div class="status-grid">
+      <button class="status-btn" id="btn-completed" onclick="selectStatus('completed')"><span class="s-emoji">✅</span>Completed</button>
+      <button class="status-btn" id="btn-no_access" onclick="selectStatus('no_access')"><span class="s-emoji">🚪</span>No Access</button>
+      <button class="status-btn" id="btn-not_interested" onclick="selectStatus('not_interested')"><span class="s-emoji">🚫</span>Not Interested</button>
+      <button class="status-btn" id="btn-tenanted" onclick="selectStatus('tenanted')"><span class="s-emoji">🏠</span>Tenanted</button>
+    </div>
+    <div class="sheet-lbl">Comment</div>
+    <textarea class="sheet-note" id="sheetNote" rows="2" placeholder="e.g. Spoke to owner — thinking of selling…"></textarea>
+    <button class="sheet-save" onclick="saveEntry()">Save</button>
+    <button class="sheet-delete" id="sheetDelete" onclick="deleteEntry()">Remove marker</button>
+  </div>
+</div>
+
+<div class="stats-panel" id="statsPanel">
+  <button class="stats-close" onclick="closeStats()">✕ Close</button>
+  <div class="stats-title">Door Knock Stats</div>
+  <div class="stats-sub" id="statsDate"></div>
+  <div id="statsContent"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- DRAW BAR -->
+<div class="draw-bar" id="drawBar">
+  <span class="draw-bar-label">✏️ Tap corners on map</span>
+  <button class="draw-btn draw-btn-undo" onclick="undoDrawPoint()">↩ Undo</button>
+  <button class="draw-btn draw-btn-cancel" onclick="cancelDrawing()">Cancel</button>
+  <button class="draw-btn draw-btn-done" onclick="finishDrawing()">✅ Done</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBC2ZVBFfiLyBclHXsp2RVZz3xJjfASO5M",
+  authDomain: "sealed-door-knock.firebaseapp.com",
+  projectId: "sealed-door-knock",
+  storageBucket: "sealed-door-knock.firebasestorage.app",
+  messagingSenderId: "967311107832",
+  appId: "1:967311107832:web:a8845e06dcd31e5e873d0d"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const col = collection(db, 'door_knocks');
+
+// ── STATUSES ─────────────────────────────────────────────────
+const STATUSES = {
+  completed:      {label:'Completed',     color:'#16a34a', emoji:'✅'},
+  no_access:      {label:'No Access',     color:'#ea580c', emoji:'🚪'},
+  not_interested: {label:'Not Interested',color:'#dc2626', emoji:'🚫'},
+  tenanted:       {label:'Tenanted',      color:'#7c3aed', emoji:'🏠'},
+};
+
+// ── SUBURBS ──────────────────────────────────────────────────
+// Sections are drawn by the user and saved to localStorage
+const SUBURB_CENTERS = {
+  highett:    {center:[-37.952, 145.044], zoom:15},
+  cheltenham: {center:[-37.962, 145.058], zoom:15},
+  mentone:    {center:[-37.981, 145.063], zoom:15},
+};
+
+function loadSections(suburb) {
+  try {
+    const raw = localStorage.getItem('dk_sections_'+suburb);
+    return raw ? JSON.parse(raw) : {};
+  } catch(e) { return {}; }
+}
+
+function saveSections(suburb, sections) {
+  localStorage.setItem('dk_sections_'+suburb, JSON.stringify(sections));
+}
+
+
+// ── STATE ─────────────────────────────────────────────────────
+let map, activeSuburb='highett', activeSection=null;
+let markers={}, allEntries={};
+let pendingLatLng=null, selectedStatus=null;
+let sectionLayers=[];
+
+// ── FIREBASE LISTENER ─────────────────────────────────────────
+function startListener() {
+  setSyncDot('syncing');
+  onSnapshot(query(col), snap => {
+    allEntries = {};
+    snap.forEach(d => { allEntries[d.id] = d.data(); });
+    renderAllMarkers();
+    updateCountBadge();
+    setSyncDot('online');
+  }, err => {
+    console.error(err);
+    setSyncDot('offline');
+    loadLocal();
+  });
+}
+
+function setSyncDot(s) {
+  const d=document.getElementById('syncDot');
+  d.className='sync-dot'+(s==='offline'?' offline':s==='syncing'?' syncing':'');
+}
+
+function saveLocal() { localStorage.setItem('dk_entries', JSON.stringify(allEntries)); }
+function loadLocal() {
+  try { const r=localStorage.getItem('dk_entries'); if(r) allEntries=JSON.parse(r); } catch(e){}
+  renderAllMarkers(); updateCountBadge();
+}
+
+// ── LOCATION ─────────────────────────────────────────────────
+let locationMarker = null, locationCircle = null;
+window.locateMe = () => {
+  if (!navigator.geolocation) { showToast('Location not supported'); return; }
+  showToast('Finding your location…');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude, lng = pos.coords.longitude, acc = pos.coords.accuracy;
+    if (locationMarker) { map.removeLayer(locationMarker); map.removeLayer(locationCircle); }
+    locationCircle = L.circle([lat,lng], {radius:acc, color:'#1d3fbb', fillColor:'#1d3fbb', fillOpacity:0.1, weight:1}).addTo(map);
+    locationMarker = L.marker([lat,lng], {
+      icon: L.divIcon({className:'', html:'<div class="you-are-here"></div>', iconSize:[20,20], iconAnchor:[10,10]})
+    }).addTo(map).bindPopup('You are here').openPopup();
+    map.setView([lat,lng], 18);
+  }, () => showToast('Could not get location'));
+};
+
+// ── MAP ───────────────────────────────────────────────────────
+function initMap() {
+  map = L.map('map', {zoomControl:true, attributionControl:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:21}).addTo(map);
+  const sub=SUBURB_CENTERS[activeSuburb];
+  map.setView(sub.center, sub.zoom);
+  map.on('click', onMapClick);
+  renderSections();
+  renderSectionPills();
+}
+
+function renderSections() {
+  sectionLayers.forEach(l=>map.removeLayer(l));
+  sectionLayers=[];
+  const sections=loadSections(activeSuburb);
+  Object.entries(sections).forEach(([name,coords])=>{
+    const isActive=activeSection===name;
+    const poly=L.polygon(coords,{
+      color:'#1d3fbb',fillColor:'#1d3fbb',
+      fillOpacity:isActive?.08:.02,
+      weight:isActive?2.5:1.5,
+      opacity:isActive?1:.5,
+      dashArray:isActive?null:'6,5'
+    }).addTo(map);
+    poly.on('click',e=>{L.DomEvent.stopPropagation(e);onMapClick(e);});
+    const center=poly.getBounds().getCenter();
+    const lbl=L.marker(center,{
+      icon:L.divIcon({className:'',html:`<div class="section-lbl-div">${name}</div>`,iconAnchor:[0,0]}),
+      interactive:false
+    }).addTo(map);
+    sectionLayers.push(poly,lbl);
+  });
+}
+
+function renderSectionPills() {
+  const row=document.getElementById('sectionRow');
+  const sections=loadSections(activeSuburb);
+  row.innerHTML=`<button class="section-pill${activeSection===null?' active':''}" onclick="setSection(null,this)">All</button>`;
+  Object.keys(sections).forEach(name=>{
+    row.innerHTML+=`<button class="section-pill${activeSection===name?' active':''}" onclick="setSection('${name}',this)">${name}</button>`;
+  });
+  row.innerHTML+=`<button class="section-pill" style="border-color:#16a34a;color:#16a34a" onclick="startDrawing()">✏️ Draw Section</button>`;
+}
+
+window.setSection=(name,btn)=>{
+  activeSection=name;
+  document.querySelectorAll('.section-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSections();
+  if(name){
+    const sections=loadSections(activeSuburb);
+    if(sections[name]) map.fitBounds(L.polygon(sections[name]).getBounds(),{padding:[40,40]});
+  } else {
+    const s=SUBURB_CENTERS[activeSuburb]; map.setView(s.center,s.zoom);
+  }
+};
+
+// ── DRAW SECTIONS ─────────────────────────────────────────────
+let drawMode=false, drawPoints=[], drawPolyline=null, drawMarkers=[];
+
+window.startDrawing=()=>{
+  if(drawMode){cancelDrawing();return;}
+  drawMode=true; drawPoints=[]; drawMarkers=[];
+  showToast('Tap map corners to draw section. Tap ✅ when done.');
+  document.getElementById('drawBar').style.display='flex';
+  map.off('click',onMapClick);
+  map.on('click',onDrawClick);
+};
+
+function onDrawClick(e){
+  if(!drawMode) return;
+  const {lat,lng}=e.latlng;
+  drawPoints.push([lat,lng]);
+  const dot=L.circleMarker([lat,lng],{radius:10,color:'white',fillColor:'#f97316',fillOpacity:1,weight:3}).addTo(map);
+  drawMarkers.push(dot);
+  if(drawPolyline) map.removeLayer(drawPolyline);
+  if(drawPoints.length>1){
+    drawPolyline=L.polyline([...drawPoints,drawPoints[0]],{color:'#f97316',weight:5,opacity:0.95}).addTo(map);
+  }
+}
+
+window.finishDrawing=()=>{
+  if(drawPoints.length<3){showToast('Need at least 3 points');return;}
+  const name=prompt('Name this section (e.g. Section 1):','Section '+(Object.keys(loadSections(activeSuburb)).length+1));
+  if(!name) return;
+  const sections=loadSections(activeSuburb);
+  sections[name]=drawPoints;
+  saveSections(activeSuburb,sections);
+  cancelDrawing();
+  renderSections();
+  renderSectionPills();
+  showToast('✅ Section saved!');
+};
+
+window.undoDrawPoint=()=>{
+  if(!drawPoints.length) return;
+  drawPoints.pop();
+  if(drawMarkers.length){map.removeLayer(drawMarkers.pop());}
+  if(drawPolyline){map.removeLayer(drawPolyline);drawPolyline=null;}
+  if(drawPoints.length>1) drawPolyline=L.polyline([...drawPoints,drawPoints[0]],{color:'#f97316',weight:5,opacity:0.95}).addTo(map);
+};
+
+window.cancelDrawing=()=>{
+  drawMode=false; drawPoints=[];
+  drawMarkers.forEach(m=>map.removeLayer(m)); drawMarkers=[];
+  if(drawPolyline){map.removeLayer(drawPolyline);drawPolyline=null;}
+  document.getElementById('drawBar').style.display='none';
+  map.off('click',onDrawClick);
+  map.on('click',onMapClick);
+};
+
+window.clearSections=()=>{
+  if(!confirm('Delete all sections for '+activeSuburb+'?')) return;
+  saveSections(activeSuburb,{});
+  activeSection=null;
+  renderSections(); renderSectionPills();
+  showToast('Sections cleared');
+};
+
+window.switchSuburb=(name,btn)=>{
+  activeSuburb=name; activeSection=null;
+  document.querySelectorAll('.suburb-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const s=SUBURB_CENTERS[name]; map.setView(s.center,s.zoom);
+  renderSections(); renderSectionPills(); renderAllMarkers();
+};
+
+// ── MAP CLICK ─────────────────────────────────────────────────
+async function onMapClick(e) {
+  const {lat,lng}=e.latlng;
+  pendingLatLng={lat,lng};
+  const key=mkKey(lat,lng);
+  const existing=allEntries[key];
+  selectedStatus=existing?existing.status:null;
+  document.getElementById('sheetAddress').textContent='📍 Loading address…';
+  document.getElementById('sheetSuburbLine').textContent='';
+  document.getElementById('sheetNote').value=existing?(existing.notes||''):'';
+  document.getElementById('sheetDelete').style.display=existing?'block':'none';
+  updateStatusBtns();
+  openSheet();
+  try {
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+    const d=await r.json();
+    const num=d.address?.house_number||'';
+    const road=d.address?.road||d.address?.pedestrian||'';
+    const sub=d.address?.suburb||d.address?.city_district||'';
+    window._addr=num?`${num} ${road}`:(road||`${lat.toFixed(5)},${lng.toFixed(5)}`);
+    window._sub=sub||activeSuburb;
+    document.getElementById('sheetAddress').textContent=window._addr;
+    document.getElementById('sheetSuburbLine').textContent=window._sub+', VIC';
+  } catch {
+    window._addr=`${lat.toFixed(5)},${lng.toFixed(5)}`;
+    window._sub=activeSuburb;
+    document.getElementById('sheetAddress').textContent=window._addr;
+  }
+}
+
+function mkKey(lat,lng){return `${lat.toFixed(6)}_${lng.toFixed(6)}`;}
+
+// ── SHEET ─────────────────────────────────────────────────────
+function openSheet(){document.getElementById('sheetOverlay').classList.add('open');document.getElementById('bottomSheet').classList.add('open');}
+window.closeSheet=()=>{document.getElementById('sheetOverlay').classList.remove('open');document.getElementById('bottomSheet').classList.remove('open');};
+window.selectStatus=s=>{selectedStatus=s;updateStatusBtns();};
+function updateStatusBtns(){
+  ['completed','no_access','not_interested','tenanted'].forEach(s=>{
+    document.getElementById('btn-'+s).className='status-btn'+(selectedStatus===s?' sel-'+s:'');
+  });
+}
+
+// ── SAVE / DELETE ─────────────────────────────────────────────
+window.saveEntry=async()=>{
+  if(!selectedStatus){showToast('Tap a status first');return;}
+  const key=mkKey(pendingLatLng.lat,pendingLatLng.lng);
+  const entry={entry_key:key,lat:pendingLatLng.lat,lng:pendingLatLng.lng,address:window._addr||key,suburb:window._sub||activeSuburb,section:activeSection||'',status:selectedStatus,notes:document.getElementById('sheetNote').value.trim(),updated_at:new Date().toISOString()};
+  setSyncDot('syncing');
+  try { await setDoc(doc(db,'door_knocks',key),entry); }
+  catch { allEntries[key]=entry; saveLocal(); placeMarker(entry); updateCountBadge(); setSyncDot('offline'); }
+  closeSheet();
+  showToast(`${STATUSES[selectedStatus].emoji} ${STATUSES[selectedStatus].label}`);
+};
+
+window.deleteEntry=async()=>{
+  const key=mkKey(pendingLatLng.lat,pendingLatLng.lng);
+  setSyncDot('syncing');
+  try { await deleteDoc(doc(db,'door_knocks',key)); }
+  catch { if(markers[key]){map.removeLayer(markers[key]);delete markers[key];} delete allEntries[key]; saveLocal(); updateCountBadge(); setSyncDot('offline'); }
+  closeSheet(); showToast('Marker removed');
+};
+
+// ── MARKERS ───────────────────────────────────────────────────
+function placeMarker(entry) {
+  const key=entry.entry_key;
+  if(markers[key]) map.removeLayer(markers[key]);
+  const s=STATUSES[entry.status]||STATUSES.completed;
+  const icon=L.divIcon({
+    className:'',
+    html:`<div style="width:18px;height:18px;border-radius:50%;background:${s.color};border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
+    iconSize:[18,18],iconAnchor:[9,9]
+  });
+  const m=L.marker([entry.lat,entry.lng],{icon}).addTo(map).on('click',e=>{
+    L.DomEvent.stopPropagation(e);
+    pendingLatLng={lat:entry.lat,lng:entry.lng};
+    window._addr=entry.address; window._sub=entry.suburb;
+    selectedStatus=entry.status;
+    document.getElementById('sheetAddress').textContent=entry.address;
+    document.getElementById('sheetSuburbLine').textContent=(entry.suburb||activeSuburb)+', VIC';
+    document.getElementById('sheetNote').value=entry.notes||'';
+    document.getElementById('sheetDelete').style.display='block';
+    updateStatusBtns(); openSheet();
+  });
+  if(entry.notes) m.bindTooltip(`<b>${entry.address}</b><br>${entry.notes}`,{direction:'top',permanent:false,className:''});
+  markers[key]=m;
+}
+
+function renderAllMarkers(){
+  Object.values(markers).forEach(m=>map.removeLayer(m));
+  markers={};
+  Object.values(allEntries).forEach(e=>placeMarker(e));
+}
+
+// ── COUNT BADGE ───────────────────────────────────────────────
+function updateCountBadge(){
+  const today=new Date().toDateString();
+  const t=Object.values(allEntries).filter(e=>new Date(e.updated_at).toDateString()===today);
+  document.getElementById('cC').textContent=t.filter(e=>e.status==='completed').length;
+  document.getElementById('cN').textContent=t.filter(e=>e.status==='no_access').length;
+  document.getElementById('cNI').textContent=t.filter(e=>e.status==='not_interested').length;
+  document.getElementById('cT').textContent=t.filter(e=>e.status==='tenanted').length;
+}
+
+// ── STATS ─────────────────────────────────────────────────────
+window.openStats=()=>{
+  document.getElementById('statsPanel').classList.add('open');
+  const all=Object.values(allEntries),total=all.length;
+  document.getElementById('statsDate').textContent=`All time · ${total} properties recorded`;
+  const byS={completed:0,no_access:0,not_interested:0,tenanted:0};
+  all.forEach(e=>{if(byS[e.status]!==undefined)byS[e.status]++;});
+  const bySuburb={};
+  ['highett','cheltenham','mentone'].forEach(s=>{bySuburb[s]=all.filter(e=>(e.suburb||'').toLowerCase().includes(s)).length;});
+  let html=`<div class="stats-row">
+    <div class="stat-card"><div class="stat-val" style="color:var(--completed)">${byS.completed}</div><div class="stat-lbl">Completed</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--no-access)">${byS.no_access}</div><div class="stat-lbl">No Access</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--not-interested)">${byS.not_interested}</div><div class="stat-lbl">Not Int.</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--tenanted)">${byS.tenanted}</div><div class="stat-lbl">Tenanted</div></div>
+  </div><div class="stats-hdr">By Status</div>`;
+  Object.entries(STATUSES).forEach(([key,s])=>{
+    const count=byS[key]||0,pct=total>0?Math.round((count/total)*100):0;
+    html+=`<div class="prog-wrap"><div class="prog-top"><span>${s.emoji} ${s.label}</span><span class="prog-count">${count} (${pct}%)</span></div><div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${s.color}"></div></div></div>`;
+  });
+  html+=`<div class="stats-hdr">By Suburb</div>`;
+  ['highett','cheltenham','mentone'].forEach(s=>{
+    const count=bySuburb[s]||0,pct=total>0?Math.round((count/total)*100):0;
+    html+=`<div class="prog-wrap"><div class="prog-top"><span style="text-transform:capitalize">${s}</span><span class="prog-count">${count}</span></div><div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:var(--accent)"></div></div></div>`;
+  });
+  document.getElementById('statsContent').innerHTML=html;
+};
+window.closeStats=()=>document.getElementById('statsPanel').classList.remove('open');
+
+// ── TOAST ─────────────────────────────────────────────────────
+window.showToast=msg=>{
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+};
+
+// ── BOOT ──────────────────────────────────────────────────────
+initMap();
+startListener();
+</script>
+</body>
+</html>
