@@ -441,6 +441,12 @@ const SUBURBS = {
 const SH_MAP = {map_lap:'ml',drop_email:'de',no_access:'na',tenanted:'t',
                 not_interested:'ni',skip:'sk',recent_sale:'rs',recent_purchased:'rp'};
 
+// ─── AK INDEX MAP (avoids special chars in data attributes) ───
+const _akMap=[];   // index → ak string
+const _akIdx={};   // ak string → index
+function akIdx(a){if(_akIdx[a]===undefined){_akIdx[a]=_akMap.length;_akMap.push(a);}return _akIdx[a];}
+function akFromIdx(i){return _akMap[i];}
+
 // ─── STATE ────────────────────────────────────────────────────
 let map, sub='highett', secActive=null;
 let markers={}, entries={};
@@ -466,8 +472,8 @@ function lsG(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null
 function lsS(k,v){localStorage.setItem(k,JSON.stringify(v))}
 function loadSecs(s){return lsG('dk_s_'+s)||{}}
 let saveSecs=function(s,v){lsS('dk_s_'+s,v)}
-function loadAnn(){ann=lsG('ann')||{}}
-let saveAnn=function(){lsS('ann',ann)}
+function loadAnn(){try{ann=JSON.parse(localStorage.getItem('ann'))||{}}catch{ann={}}}
+let saveAnn=function(){try{localStorage.setItem('ann',JSON.stringify(ann))}catch{}}
 function saveLocal(){lsS('dk_e',entries)}
 function loadLocal(){entries=lsG('dk_e')||{};renderMarkers();updateBadge()}
 function subProps(){return PROPERTY_DATA.filter(p=>p.suburb.toLowerCase()===sub.toLowerCase())}
@@ -880,6 +886,7 @@ function toggleComplex(cid){
 function propCard(p){
   const a=ak(p), no=ann[a]||{};
   const sid=safeId(a);
+  const ai=akIdx(a); // safe numeric index for data attributes
   const isT=!!no.tag, ti=no.tag?TAGS.find(t=>t.k===no.tag):null;
   const col=ti?ti.c:'#4b5563';
   const mapE=findEntry(p.address), ms=mapE?ST[mapE.status]:null;
@@ -888,11 +895,11 @@ function propCard(p){
 
   const tagBtns=TAGS.map(t=>{
     const sel=no.tag===t.k;
-    return '<button class="tg'+(sel?' tsel':'')+'" style="color:'+(sel?'#fff':t.c)+';background:'+(sel?t.c:'transparent')+';border-color:'+t.c+'" data-action="tag" data-ak="'+esc(a)+'" data-tagkey="'+t.k+'">'+esc(t.l)+'</button>';
+    return '<button class="tg'+(sel?' tsel':'')+'" style="color:'+(sel?'#fff':t.c)+';background:'+(sel?t.c:'transparent')+';border-color:'+t.c+'" data-action="tag" data-ai="'+ai+'" data-tagkey="'+t.k+'">'+esc(t.l)+'</button>';
   }).join('');
 
-  const noteDisplay='<div id="ndisp-'+sid+'" class="note-row" style="align-items:center;gap:7px">'+(no.note?'<span style="font-size:12px;color:var(--sub);font-style:italic;flex:1">📝 '+esc(no.note)+'</span><button data-action="editnote" data-ak="'+esc(a)+'" class="note-sv" style="flex-shrink:0">Edit</button>':'<span style="font-size:12px;color:var(--gray);flex:1">No note</span><button data-action="editnote" data-ak="'+esc(a)+'" class="note-sv" style="flex-shrink:0">Add note</button>')+'</div>';
-  const noteEdit='<div id="nedit-'+sid+'" class="note-row" style="display:none"><input class="note-in" id="pnote-'+sid+'" type="text" placeholder="Add a note…" value="'+nv+'" data-ak="'+a+'"><button class="note-sv" data-action="savenote" data-ak="'+esc(a)+'">Save</button></div>';
+  const noteDisplay='<div id="ndisp-'+sid+'" class="note-row" style="align-items:center;gap:7px">'+(no.note?'<span style="font-size:12px;color:var(--sub);font-style:italic;flex:1">📝 '+esc(no.note)+'</span><button data-action="editnote" data-ai="'+ai+'" class="note-sv" style="flex-shrink:0">Edit</button>':'<span style="font-size:12px;color:var(--gray);flex:1">No note</span><button data-action="editnote" data-ai="'+ai+'" class="note-sv" style="flex-shrink:0">Add note</button>')+'</div>';
+  const noteEdit='<div id="nedit-'+sid+'" class="note-row" style="display:none"><input class="note-in" id="pnote-'+sid+'" type="text" placeholder="Add a note…" value="'+nv+'" data-ai="'+ai+'"><button class="note-sv" data-action="savenote" data-ai="'+ai+'">Save</button></div>';
 
   const onmap=ms?'<span style="font-size:10px;font-weight:700;background:'+ms.color+';color:#fff;border-radius:6px;padding:1px 6px;margin-left:5px">'+ms.emoji+'</span>':'';
 
@@ -907,7 +914,7 @@ function propCard(p){
         '<div style="display:flex;align-items:center;gap:6px">'+
           onmap+
           '<span style="background:rgba(255,255,255,.22);color:#fff;font-size:11px;font-weight:700;border-radius:99px;padding:3px 10px">'+esc(ti.l)+'</span>'+
-          '<button data-action="removetag" data-ak="'+esc(a)+'" style="background:rgba(255,255,255,.25);border:none;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:3px 8px;cursor:pointer;white-space:nowrap">✕ Remove</button>'+
+          '<button data-action="removetag" data-ai="'+ai+'" style="background:rgba(255,255,255,.25);border:none;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:3px 8px;cursor:pointer;white-space:nowrap">✕ Remove</button>'+
         '</div>'+
       '</div>'+
       '<div class="pcard-body" style="padding-top:10px">'+
@@ -1143,11 +1150,16 @@ document.addEventListener('click',function(e){
   const t=e.target.closest('[data-action]');
   if(!t)return;
   const act=t.dataset.action;
+  // Resolve ak: prefer numeric index (data-ai) over legacy data-ak
+  const _resolveAk=el=>{
+    if(el.dataset.ai!==undefined) return akFromIdx(parseInt(el.dataset.ai,10));
+    return el.dataset.ak||'';
+  };
   if(act==='sec'){bSec=t.dataset.val;bLvl='streets';bQ='';$('bfin').value='';$('bfix').style.display='none';renderBrowser()}
   else if(act==='street'){bStr=t.dataset.val;bLvl='properties';bOE='all';bQ='';$('bfin').value='';$('bfix').style.display='none';renderBrowser()}
-  else if(act==='tag') setPTag(t.dataset.ak,t.dataset.tagkey);
+  else if(act==='tag') setPTag(_resolveAk(t),t.dataset.tagkey);
   else if(act==='removetag'){
-    const _a=t.dataset.ak;
+    const _a=_resolveAk(t);
     if(ann[_a])ann[_a].tag='';
     saveAnn();
     // Remove map marker/entry created by geocodeAndMark
@@ -1167,14 +1179,14 @@ document.addEventListener('click',function(e){
     toast('Tag removed');
   }
   else if(act==='editnote'){
-    const _a=t.dataset.ak;
+    const _a=_resolveAk(t);
     const _sid=safeId(_a);
     const _disp=$('ndisp-'+_sid),_edit=$('nedit-'+_sid);
     if(_disp)_disp.style.display='none';
     if(_edit)_edit.style.display='flex';
     const _in=$('pnote-'+_sid);if(_in){_in.focus();_in.select();}
   }
-  else if(act==='savenote') savePNote(t.dataset.ak);
+  else if(act==='savenote') savePNote(_resolveAk(t));
   else if(act==='drill') drillTo(t.dataset.suburb,t.dataset.section,t.dataset.street);
 });
 
@@ -1205,7 +1217,7 @@ $('sIn').addEventListener('input',function(){clearTimeout(sDebounce);sDebounce=s
 $('sClear').addEventListener('click',()=>{$('sIn').value='';$('sClear').style.display='none';runSearch()});
 
 $('oeRow').addEventListener('click',function(e){const b=e.target.closest('[data-oe]');if(!b)return;bOE=b.dataset.oe;renderBProps();});
-$('bBody').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList.contains('note-in'))savePNote(e.target.dataset.ak)});
+$('bBody').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList.contains('note-in')){const _ai=e.target.dataset.ai;savePNote(_ai!==undefined?akFromIdx(parseInt(_ai,10)):e.target.dataset.ak)}});
 
 
 // ─── MONDAY FORM ────────────────────────────────────────────
