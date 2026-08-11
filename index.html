@@ -53,6 +53,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .sync-banner{display:none;background:#b45309;color:#fff;font-size:12px;font-weight:700;
   text-align:center;padding:8px 14px;flex-shrink:0}
 .sync-banner.on{display:block}
+.sync-banner.mild{background:var(--blue)}
 .pending-badge{display:none;font-size:10px;font-weight:800;background:#f59e0b;color:#fff;
   border-radius:99px;padding:2px 8px;white-space:nowrap}
 
@@ -616,7 +617,20 @@ const safeId=a=>a.replace(/[^a-zA-Z0-9_\-]/g,'_');
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)}
 function sdot(s){const d=$('syncDot');d.className='sync'+(s==='off'?' off':s==='syn'?' syn':'')}
-function setSyncIssue(on){const b=$('syncBanner'); if(b) b.classList.toggle('on',!!on)}
+// mild: the live-push channel (onSnapshot) is blocked but ordinary reads/
+// writes still work fine via HTTPS — saves are NOT actually queued, only
+// live updates from other devices are delayed to the 20s poll interval.
+// severe (default): nothing is getting through at all.
+function setSyncIssue(on, mild){
+  const b=$('syncBanner'); if(!b) return;
+  b.classList.toggle('on',!!on);
+  b.classList.toggle('mild',!!mild);
+  if(on){
+    b.textContent = mild
+      ? '🔌 Live updates from other devices may lag ~20s — your own taps are still saving normally'
+      : "🔌 Can't reach saved data right now — your changes are queued and will save automatically once reconnected";
+  }
+}
 function findEntry(addr){const u=addr.toUpperCase().trim();return Object.values(entries).find(e=>(e.address||'').toUpperCase().trim()===u)||null}
 // Matches a map address (typically from reverse-geocoding a tap) back to a
 // row in PROPERTY_DATA, so a status set directly on the map can be mirrored
@@ -2362,21 +2376,30 @@ async function initFB(){
       sdot('');
       setSyncIssue(false);
       if(window._fbPollTimer){ clearInterval(window._fbPollTimer); window._fbPollTimer=null; }
-    },()=>{
-      // Live listener couldn't establish (usually a blocked websocket) —
-      // never fall back to this device's local cache, since that would
+    },(err)=>{
+      // Live listener couldn't establish (usually a blocked websocket/stream —
+      // common on office firewalls or security software that allow ordinary
+      // HTTPS but block long-lived connections). Logged here so it's
+      // diagnosable from the console instead of a silent banner with no trace.
+      console.warn('Firestore live listener (onSnapshot) failed — falling back to 20s polling:', err);
+      // Never fall back to this device's local cache, since that would
       // show different data to different users. Instead, keep polling
       // Firestore directly on a plain HTTPS read so everyone still
       // converges on the same shared state. Surface this distinctly from
-      // the plain-offline banner, since navigator.onLine is still true here.
+      // the plain-offline banner, since navigator.onLine is still true here —
+      // and as a MILD notice, since fbSave/fbDel/fetchOnce are separate
+      // plain HTTPS calls unaffected by this — saves keep working normally,
+      // only the live push from other devices is delayed to the poll interval.
       sdot('off');
-      if(navigator.onLine) setSyncIssue(true);
+      if(navigator.onLine) setSyncIssue(true, true);
       if(!window._fbPollTimer){
         window._fbPollTimer=setInterval(async()=>{
           sdot('syn');
           const ok=await fetchOnce();
           sdot(ok?'':'off');
-          setSyncIssue(!ok && navigator.onLine);
+          // A failure here is more serious — even plain reads are failing,
+          // not just the live channel — so this escalates to the non-mild banner.
+          setSyncIssue(!ok && navigator.onLine, false);
         },20000);
       }
     });
