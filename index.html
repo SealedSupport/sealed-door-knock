@@ -15,10 +15,21 @@
   --blue:#1d3fbb;--text:#111;--sub:#888;
   --green:#16a34a;--navy:#1e6fbb;--slate:#4b5563;
   --orange:#ea580c;--gray:#9ca3af;--purple:#7c3aed;
+  --overlay:rgba(255,255,255,.95);
   --r:12px;--f:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif
 }
+body.dark{
+  --bg:#0d0e11;--card:#1b1c20;--border:#2e2f34;
+  --text:#f0f0f1;--sub:#9a9aa3;
+  --overlay:rgba(27,28,32,.94);
+  --gray:#6b6c72;
+}
+body.dark #map .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.9)}
+body.dark .leaflet-control-zoom a{background:var(--card);color:var(--text);border-color:var(--border)!important}
+body.dark .leaflet-bar{border-color:var(--border)}
+body.dark .toast{background:#f0f0f1;color:#111}
 html,body{height:100%;overflow:hidden}
-body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;flex-direction:column;transition:background .2s,color .2s}
 
 /* ── TOP BAR ── */
 .bar{background:var(--card);border-bottom:1px solid var(--border);
@@ -39,6 +50,11 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .offline-banner{display:none;background:#dc2626;color:#fff;font-size:12px;font-weight:700;
   text-align:center;padding:8px 14px;flex-shrink:0}
 .offline-banner.on{display:block}
+.sync-banner{display:none;background:#b45309;color:#fff;font-size:12px;font-weight:700;
+  text-align:center;padding:8px 14px;flex-shrink:0}
+.sync-banner.on{display:block}
+.pending-badge{display:none;font-size:10px;font-weight:800;background:#f59e0b;color:#fff;
+  border-radius:99px;padding:2px 8px;white-space:nowrap}
 
 /* ── MAIN TABS ── */
 .tabs{display:flex;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
@@ -60,27 +76,43 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .map-wrap{flex:1;position:relative;min-height:0}
 #map{width:100%;height:100%}
 .legend{position:absolute;top:10px;right:10px;z-index:500;
-  background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:10px;
-  padding:8px 12px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
-.leg{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:11px;font-weight:600}
+  background:var(--overlay);border:1px solid var(--border);border-radius:10px;
+  padding:8px 12px;box-shadow:0 2px 10px rgba(0,0,0,.1);max-width:150px;transition:padding .15s}
+.legend-hdr{display:none;align-items:center;justify-content:space-between;gap:10px;
+  font-size:10px;font-weight:700;color:var(--sub);cursor:pointer;user-select:none}
+.legend.collapsible .legend-hdr{display:flex}
+.legend.collapsible.collapsed{padding:6px 10px}
+.legend.collapsed .leg{display:none}
+.legend.collapsed .legend-hdr{margin:0}
+.leg{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:11px;font-weight:600;margin-top:6px}
+.legend-hdr+.leg{margin-top:6px}
 .leg:last-child{margin-bottom:0}
 .ldot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .loc-btn{position:absolute;bottom:56px;right:10px;z-index:500;
-  width:38px;height:38px;border-radius:50%;background:#fff;border:1px solid var(--border);
+  width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);
   box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;
-  font-size:18px;cursor:pointer}
+  font-size:18px;cursor:pointer;color:var(--text)}
 .badge{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:500;
-  background:rgba(255,255,255,.96);border:1px solid var(--border);border-radius:99px;
+  background:var(--overlay);border:1px solid var(--border);border-radius:99px;
   padding:5px 12px;font-size:12px;font-weight:700;color:var(--sub);
   box-shadow:0 2px 8px rgba(0,0,0,.1);white-space:nowrap;display:flex;gap:8px;align-items:center}
 .bd{display:flex;align-items:center;gap:3px}
 .bc{width:8px;height:8px;border-radius:50%}
 .yah{width:18px;height:18px;border-radius:50%;background:var(--blue);
   border:3px solid #fff;box-shadow:0 0 0 3px rgba(29,63,187,.25),0 2px 6px rgba(0,0,0,.3)}
-.slbl{color:#1d3fbb;font-weight:800;font-size:11px;white-space:nowrap;
+.slbl{color:#1d3fbb;font-weight:800;font-size:11px;white-space:nowrap;opacity:.5;transition:opacity .15s;
   text-shadow:1px 1px 0 #fff,-1px 1px 0 #fff,1px -1px 0 #fff,-1px -1px 0 #fff,0 1px 0 #fff,0 -1px 0 #fff}
+.slbl.active{opacity:1;font-size:12px}
+/* Short viewports (landscape phones) — legend rows can crowd the badge
+   below them, so shrink spacing rather than let them collide. */
+@media (max-height:420px){
+  .legend{padding:6px 10px}
+  .leg{font-size:9.5px;margin-bottom:2px;gap:5px}
+  .ldot{width:8px;height:8px}
+  .loc-btn{width:34px;height:34px;bottom:50px;font-size:16px}
+}
 .dbar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:600;
-  background:#fff;border-top:3px solid #1d3fbb;
+  background:var(--card);border-top:3px solid #1d3fbb;
   padding:10px 14px max(env(safe-area-inset-bottom),10px);
   gap:8px;align-items:center;box-shadow:0 -3px 16px rgba(217,119,6,.25)}
 .dlbl{font-size:12px;font-weight:700;color:#92650a;flex:1}
@@ -265,7 +297,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
 /* ── COLLAPSIBLE PROPERTY CARD ── */
 .pcard-tap{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
 .pcard-tap:active{opacity:.85}
-.pcard-expand{display:none;border-top:1px solid var(--border);padding:10px 14px 12px;background:#fff}
+.pcard-expand{display:none;border-top:1px solid var(--border);padding:10px 14px 12px;background:var(--card)}
 .pcard-expand.open{display:block}
 .pcard-tap-hint{font-size:10px;color:var(--gray);font-weight:600;margin-top:2px}
 /* doorknocked indicator on untagged row */
@@ -283,15 +315,21 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
     <button class="sp" data-suburb="cheltenham">Cheltenham</button>
     <button class="sp" data-suburb="mentone">Mentone</button>
   </div>
+  <span class="pending-badge" id="pendingBadge" title="Changes not yet confirmed saved"></span>
   <div class="sync" id="syncDot"></div>
   <button class="bar-icon" id="doneBtn" title="Check all changes saved before closing" style="background:#1d3fbb;border-color:#1d3fbb">✅</button>
   <button class="bar-icon" id="statsBtn">📊</button>
   <button class="bar-icon" id="exportBtn">⬇️</button>
   <button class="bar-icon" id="clearSecBtn">🗑️</button>
+  <button class="bar-icon" id="themeBtn" title="Toggle light/dark">🌙</button>
 </div>
 
 <!-- OFFLINE WARNING -->
 <div class="offline-banner" id="offlineBanner">📵 No internet connection — changes won't be saved until you're back online</div>
+<!-- SYNC ISSUE WARNING: distinct from the above — device is online but the
+     app can't reach Firestore (e.g. a wifi/firewall blocking it). Changes
+     are queued locally and will save automatically once this clears. -->
+<div class="sync-banner" id="syncBanner">🔌 Can't reach saved data right now — your changes are queued and will save automatically once reconnected</div>
 
 <!-- MAIN TABS -->
 <div class="tabs">
@@ -304,7 +342,8 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
   <div class="secstrip" id="secRow"></div>
   <div class="map-wrap">
     <div id="map"></div>
-    <div class="legend">
+    <div class="legend collapsible" id="legend">
+      <div class="legend-hdr" id="legendHdr">Legend <span id="legendArr">▾</span></div>
       <div class="leg"><div class="ldot" style="background:var(--green)"></div>MAP/LAP</div>
       <div class="leg"><div class="ldot" style="background:#4ade80"></div>Drop/Email CMA</div>
       <div class="leg"><div class="ldot" style="background:var(--slate)"></div>No Access</div>
@@ -400,7 +439,9 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
     </div>
     <div class="sh-lbl">Note</div>
     <textarea class="sh-note" id="shNote" rows="2" placeholder="Add a note…"></textarea>
-    <button class="sh-save" id="shSave">Save</button>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="note-sv" id="shNoteSave">💾 Save note</button>
+    </div>
     <button class="sh-del" id="shDel">Remove marker</button>
   </div>
 </div>
@@ -511,6 +552,61 @@ let fbSave=null, fbDel=null, fbSaveSecs=null, fbSaveAnchor=null, fbSaveAddrLoc=n
 // is ever read from or written to this browser's local storage.
 const secsCache={};
 
+// ─── SAVE QUEUE (prevents silent data loss) ───────────────────
+// Two windows exist where a write attempt used to be silently dropped
+// with zero indication to the user:
+//   1. App boot: the map is interactive immediately, but initFB() (which
+//      loads the Firebase SDK over the network) hasn't finished yet, so
+//      fbSave/fbSaveSecs/fbSaveAnchor/fbSaveAddrLoc are still null.
+//   2. Firestore becomes unreachable while navigator.onLine is still
+//      true (e.g. a wifi/firewall blocks Google's Firestore domain) —
+//      the offline banner never fires for this since it only watches
+//      navigator.onLine.
+// Every write path now goes through deferUntilReady() instead of a bare
+// `if(fbX) fbX(...)` check. If Firebase isn't ready yet, the task is
+// queued (not dropped) and a visible "N unsynced" badge appears; once
+// initFB() finishes wiring up the real fbX functions it flushes the
+// queue in order automatically. Local in-memory state (ann/entries/
+// secsCache/etc.) is always updated immediately either way, so the UI
+// itself never lags — only the network write is deferred.
+window._fbReady=false;
+const _preReadyQueue=[];
+function deferUntilReady(taskFn){
+  if(window._fbReady){ taskFn(); return; }
+  _preReadyQueue.push(taskFn);
+  updatePendingBadge();
+  sdot('syn');
+}
+function flushPreReadyQueue(){
+  const tasks=_preReadyQueue.splice(0,_preReadyQueue.length);
+  tasks.forEach(fn=>{ try{ fn(); }catch(e){ console.warn('queued save failed', e); } });
+  updatePendingBadge();
+}
+function updatePendingBadge(){
+  const el=$('pendingBadge'); if(!el) return;
+  const n=_preReadyQueue.length + (window._pendingWrites||0);
+  if(n>0){ el.textContent=n+' unsynced'; el.style.display='inline-block'; }
+  else { el.style.display='none'; }
+}
+// A second, later gate than the one above: window._fbReady flips (and
+// _preReadyQueue flushes) as soon as fbSave/fbDel/etc. exist, which is
+// BEFORE the first real Firestore read has actually populated `entries`/
+// `ann` with the shared state — so anything that needs to know what's
+// currently on the map/in Firestore (not just "can I write now") has to
+// wait for this second gate instead. Used by the tag-removal cleanup
+// below, which needs to look up whether a matching map pin exists before
+// it can delete it.
+window._dataReady=false;
+const _postSyncQueue=[];
+function deferUntilDataReady(taskFn){
+  if(window._dataReady){ taskFn(); return; }
+  _postSyncQueue.push(taskFn);
+}
+function flushPostSyncQueue(){
+  const tasks=_postSyncQueue.splice(0,_postSyncQueue.length);
+  tasks.forEach(fn=>{ try{ fn(); }catch(e){ console.warn('queued cleanup failed', e); } });
+}
+
 // ─── UTILS ────────────────────────────────────────────────────
 const $=id=>document.getElementById(id);
 const tc=s=>s?s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):'';
@@ -520,6 +616,7 @@ const safeId=a=>a.replace(/[^a-zA-Z0-9_\-]/g,'_');
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)}
 function sdot(s){const d=$('syncDot');d.className='sync'+(s==='off'?' off':s==='syn'?' syn':'')}
+function setSyncIssue(on){const b=$('syncBanner'); if(b) b.classList.toggle('on',!!on)}
 function findEntry(addr){const u=addr.toUpperCase().trim();return Object.values(entries).find(e=>(e.address||'').toUpperCase().trim()===u)||null}
 // Matches a map address (typically from reverse-geocoding a tap) back to a
 // row in PROPERTY_DATA, so a status set directly on the map can be mirrored
@@ -543,27 +640,54 @@ function syncAnnFromMap(address, suburb, tag, note){
   if(!ann[pak]) ann[pak]={};
   ann[pak].tag=tag||'';
   if(note!==undefined) ann[pak].note=note;
-  saveAnn();
+  saveAnn(pak);
   const c=$('pcard-'+safeId(pak));
   if(c) c.outerHTML=propCard(p);
 }
 function loadSecs(s){return secsCache[s]||{}}
 let saveSecs=function(s,v){
   secsCache[s]=v;
-  // Also push to Firebase if available (handles case where Firebase init races with draw)
-  if(fbSaveSecs) fbSaveSecs(s,v);
+  // Push to Firebase — queued automatically if Firebase init races with draw,
+  // rather than silently dropped (see deferUntilReady above).
+  deferUntilReady(()=>fbSaveSecs(s,v));
 }
 function loadAnn(){ann={}} // Firestore is the sole source of truth for tags/notes.
                             // Deliberately NOT seeded from localStorage: this is a shared
                             // multi-user tool, so every browser/device must show the same
                             // server state rather than whatever happens to be cached locally.
-let saveAnn=function(removedAk){/* replaced by initFB() once Firestore is ready; state lives in `ann` until then */}
+// Placeholder until initFB() installs the real Firestore-backed version.
+// A tag/note made before that happens is queued (not dropped) — see
+// _annDirtyBeforeReady, flushed by initFB() once saveAnn is replaced.
+// If a tag removal also needs to clean up a matching map pin (removedAk),
+// that cleanup is queued separately via deferUntilDataReady — it can't run
+// until the first real sync tells us whether that pin actually exists.
+let _annDirtyBeforeReady=false;
+let saveAnn=function(removedAk){
+  _annDirtyBeforeReady=true;
+  if(removedAk){
+    const p=PROPERTY_DATA.find(x=>ak(x)===removedAk);
+    if(p){
+      deferUntilDataReady(()=>{
+        const me=findEntry(p.address);
+        if(me && fbDel){
+          withTimeout(fbDel(me.entry_key)).catch(()=>toast('⚠️ Not saved — check connection and try again'));
+          delete entries[me.entry_key];
+          if(markers[me.entry_key]){map.removeLayer(markers[me.entry_key]);delete markers[me.entry_key]}
+          updateBadge();
+        }
+      });
+    }
+  }
+  updatePendingBadge();
+  sdot('syn');
+}
 
 // ─── WRITE TRACKING (for Start/End session buttons) ──────────
 window._pendingWrites = 0;
 function trackWrite(promise){
   window._pendingWrites++;
-  return Promise.resolve(promise).finally(()=>{ window._pendingWrites-- });
+  updatePendingBadge();
+  return Promise.resolve(promise).finally(()=>{ window._pendingWrites--; updatePendingBadge(); });
 }
 function subProps(){return PROPERTY_DATA.filter(p=>p.suburb.toLowerCase()===sub.toLowerCase())}
 
@@ -636,7 +760,11 @@ function renderSecs(){
     }
     layer.on('click',e=>{L.DomEvent.stopPropagation(e);onMapClick(e)});
     const center=type==='line'?L.polyline(pts).getBounds().getCenter():L.polygon(pts).getBounds().getCenter();
-    const lbl=L.marker(center,{icon:L.divIcon({className:'',html:'<div class="slbl">'+n+'</div>',iconAnchor:[0,0]}),interactive:false}).addTo(map);
+    // Dim other labels only once a section is actively selected, so the
+    // chosen one stands out — with nothing selected, all stay equally
+    // legible for picking one.
+    const dim=secActive!==null && !isActive;
+    const lbl=L.marker(center,{icon:L.divIcon({className:'',html:'<div class="slbl'+(dim?'':' active')+'">'+n+'</div>',iconAnchor:[0,0]}),interactive:false}).addTo(map);
     secLayers.push(layer,lbl);
   });
 }
@@ -894,9 +1022,7 @@ async function onMapClick(e){
     const aKey=anchorKey(parent, suburb);
     complexAnchors[aKey]={lat,lng};
     _pickingAnchorFor=null;
-    if(fbSaveAnchor){
-      fbSaveAnchor(aKey, suburb, parent, lat, lng).catch(()=>toast('⚠️ Not saved — check connection and try again'));
-    }
+    deferUntilReady(()=>fbSaveAnchor(aKey, suburb, parent, lat, lng).catch(()=>toast('⚠️ Not saved — check connection and try again')));
     toast('📍 Location set for '+tc(parent)+' — new units tagged from Properties will use this spot');
     return;
   }
@@ -906,9 +1032,7 @@ async function onMapClick(e){
     const key=ak({address, suburb});
     addrLocations[key]={lat,lng};
     _pickingLocationFor=null;
-    if(fbSaveAddrLoc){
-      fbSaveAddrLoc(key, address, suburb, lat, lng).catch(()=>toast('⚠️ Not saved — check connection and try again'));
-    }
+    deferUntilReady(()=>fbSaveAddrLoc(key, address, suburb, lat, lng).catch(()=>toast('⚠️ Not saved — check connection and try again')));
     // If this property is already tagged/mapped, move its existing pin to
     // match immediately — no need to remove and re-tag by hand.
     const existingPin=findEntry(address);
@@ -923,8 +1047,8 @@ async function onMapClick(e){
       entries[newKey]=moved;
       placeMarker(moved);
       updateBadge();
-      if(fbSave) fbSave(newKey,moved).catch(()=>toast('⚠️ Not saved — check connection and try again'));
-      if(oldKey!==newKey && fbDel) fbDel(oldKey).catch(()=>{}); // clean up the stale doc at the old key
+      deferUntilReady(()=>fbSave(newKey,moved).catch(()=>toast('⚠️ Not saved — check connection and try again')));
+      if(oldKey!==newKey) deferUntilReady(()=>fbDel(oldKey).catch(()=>{})); // clean up the stale doc at the old key
       toast('📍 '+tc(address)+' — existing pin moved to match');
     } else {
       toast('📍 Location set for '+tc(address)+' — tagging it from Properties will use this spot');
@@ -935,6 +1059,7 @@ async function onMapClick(e){
   const{lat,lng}=e.latlng; pendLL={lat,lng};
   const key=mkKey(lat,lng), ex=entries[key];
   pendSt=ex?ex.status:null;
+  window._addrReady=false; // guards pickStatus() below until reverse-geocode resolves
   $('shAddr').value='Loading…'; $('shSub').textContent='';
   $('shAddrSuggest').style.display='none'; $('shAddrSuggest').innerHTML='';
   $('shAddrHint').textContent='Auto-detected — edit if this is a specific unit'; $('shAddrHint').classList.remove('matched');
@@ -956,6 +1081,7 @@ async function onMapClick(e){
     window._sub=s?s.replace(/\b\w/g,c=>c.toUpperCase()):sub;
     $('shAddr').value=window._addr; $('shSub').textContent=window._sub+', VIC';
   }catch(err){console.error('Reverse geocode failed for', lat, lng, err);window._addr=lat.toFixed(5)+','+lng.toFixed(5);window._sub=sub;$('shAddr').value=window._addr}
+  window._addrReady=true;
   updateShAddrHint();
 }
 function openSheet(){$('shOv').classList.add('on');$('sheet').classList.add('on')}
@@ -965,7 +1091,39 @@ document.addEventListener('click',function(e){
     const box=$('shAddrSuggest'); if(box) box.style.display='none';
   }
 });
-function setPendSt(s){pendSt=s;updateShBtns()}
+// Tapping a status commits it immediately — same instant-tap pattern as
+// the Properties list tag grid, instead of the old "pick, then press
+// Save" two-step. Tapping the already-selected status again clears it
+// (also matching the Properties list's tag toggle), via the lighter
+// clearPendStatus() below rather than the confirm-guarded deleteEntry()
+// used by the explicit "Remove marker" button — this is just undoing your
+// own last tap, not a deliberate delete, so it shouldn't need a prompt.
+async function pickStatus(s){
+  if(!window._addrReady){ toast('⏳ Still detecting address — try again in a moment'); return; }
+  if(pendSt===s){ await clearPendStatus(); return; }
+  pendSt=s; updateShBtns();
+  await saveEntry();
+}
+async function clearPendStatus(){
+  // Prefer the entry keyed by address over a bare coordinate lookup —
+  // pendLL should already match (saveEntry keeps it in sync now), but
+  // this is a cheap extra safety net against acting on the wrong pin.
+  const coordKey=mkKey(pendLL.lat,pendLL.lng);
+  const existing=entries[coordKey] || (window._addr?findEntry(window._addr):null);
+  const key=existing?existing.entry_key:coordKey;
+  if(markers[key]){map.removeLayer(markers[key]);delete markers[key]}
+  delete entries[key]; updateBadge();
+  pendSt=null; updateShBtns();
+  $('shDel').style.display='none';
+  toast('Status cleared');
+  sdot('syn');
+  const doDel=()=>withTimeout(fbDel(key)).then(()=>sdot('')).catch(err=>{
+    console.error('clearPendStatus: Firestore delete failed', err); sdot('off');
+    toast('⚠️ Not saved — check connection and try again');
+  });
+  if(!fbDel) deferUntilReady(doDel); else await doDel();
+  if(existing) syncAnnFromMap(existing.address, existing.suburb, '', existing.notes);
+}
 function updateShBtns(){
   Object.entries(SH_MAP).forEach(([st,id])=>{
     const btn=$('btn-'+id); if(!btn)return;
@@ -1012,16 +1170,36 @@ async function saveEntry(){
   // Firestore before touching the UI at all, so a hung/offline write left
   // the sheet stuck open with nothing saved.
   entries[key]=entry;placeMarker(entry);updateBadge();
-  closeSheet();toast(ST[pendSt].emoji+' '+ST[pendSt].label);
+  // Keep pendLL in sync with where this entry actually lives — saveEntry
+  // can reuse an existing pin's coordinates rather than the ones just
+  // tapped (see "existing" above), so the key here can differ from
+  // mkKey(pendLL.lat,pendLL.lng). Since the sheet now stays open after
+  // saving (see below), any follow-up action in this same sheet session —
+  // toggling the status off, deleting, saving a note — must act on the
+  // real pin, not the stale originally-tapped spot.
+  pendLL={lat:entry.lat,lng:entry.lng};
+  // Sheet stays open now (status commits instantly, like a Properties list
+  // tag tap) so the note field is still reachable afterward — it used to
+  // close here, back when this only ran after an explicit Save button tap.
+  $('shDel').style.display='block';
+  toast(ST[pendSt].emoji+' '+ST[pendSt].label);
   sdot('syn');
-  try{
-    if(!fbSave) throw new Error('fbSave not initialized');
-    await withTimeout(fbSave(key,entry));
-    sdot('');
-  }catch(err){
-    console.error('saveEntry: Firestore write failed', err);
-    sdot('off');
-    toast('⚠️ Not saved — check connection and try again');
+  if(!fbSave){
+    // Firebase isn't ready yet — queue instead of failing outright; it
+    // will auto-save the moment initFB() finishes (see deferUntilReady).
+    deferUntilReady(()=>withTimeout(fbSave(key,entry)).then(()=>sdot('')).catch(err=>{
+      console.error('saveEntry: Firestore write failed', err); sdot('off');
+      toast('⚠️ Not saved — check connection and try again');
+    }));
+  } else {
+    try{
+      await withTimeout(fbSave(key,entry));
+      sdot('');
+    }catch(err){
+      console.error('saveEntry: Firestore write failed', err);
+      sdot('off');
+      toast('⚠️ Not saved — check connection and try again');
+    }
   }
   // Mirror this status into the properties list too, so a status set by
   // tapping the map shows up as a tag there as well (both directions stay
@@ -1032,23 +1210,55 @@ async function saveEntry(){
     setTimeout(()=>openMondayForm(window._addr, window._sub, pendSt), 300);
   }
 }
-async function deleteEntry(){
+// Saves just the note onto whatever's already pinned at this spot —
+// separate from status, same as the Properties list's note field has its
+// own Save button distinct from the tag grid above it.
+async function saveShNoteOnly(){
+  if(!pendLL) return;
   const key=mkKey(pendLL.lat,pendLL.lng);
-  const existing=entries[key]; // capture before delete so we can un-tag the matching property
+  const existing=entries[key] || (window._addr?findEntry(window._addr):null);
+  if(!existing){ toast('Pick a status first'); return; }
+  const newNote=$('shNote').value.trim();
+  const u={...existing, notes:newNote, updated_at:new Date().toISOString()};
+  entries[existing.entry_key]=u;
+  placeMarker(u);
+  toast('💾 Note saved');
+  sdot('syn');
+  const doSave=()=>withTimeout(fbSave(existing.entry_key,u)).then(()=>sdot('')).catch(err=>{
+    console.error('saveShNoteOnly: Firestore write failed', err); sdot('off');
+    toast('⚠️ Not saved — check connection and try again');
+  });
+  if(!fbSave) deferUntilReady(doSave); else await doSave();
+  // keep the Properties list's note in sync too
+  syncAnnFromMap(u.address, u.suburb, u.status, newNote);
+}
+async function deleteEntry(){
+  // Same address-first lookup as clearPendStatus — defends against acting
+  // on the wrong pin if pendLL ever doesn't match the entry actually shown.
+  const coordKey=mkKey(pendLL.lat,pendLL.lng);
+  const existing=entries[coordKey] || (window._addr?findEntry(window._addr):null);
+  const key=existing?existing.entry_key:coordKey;
+  if(existing && !confirm('Remove this pin? "'+tc(existing.address)+'" — status, notes and history for it will be deleted.')) return;
   // Same reasoning as saveEntry: update the UI immediately rather than
   // waiting on a Firestore call that might hang while offline.
   if(markers[key]){map.removeLayer(markers[key]);delete markers[key]}
   delete entries[key];updateBadge();
   closeSheet();toast('Removed');
   sdot('syn');
-  try{
-    if(!fbDel) throw new Error('fbDel not initialized');
-    await withTimeout(fbDel(key));
-    sdot('');
-  }catch(err){
-    console.error('deleteEntry: Firestore delete failed', err);
-    sdot('off');
-    toast('⚠️ Not saved — check connection and try again');
+  if(!fbDel){
+    deferUntilReady(()=>withTimeout(fbDel(key)).then(()=>sdot('')).catch(err=>{
+      console.error('deleteEntry: Firestore delete failed', err); sdot('off');
+      toast('⚠️ Not saved — check connection and try again');
+    }));
+  } else {
+    try{
+      await withTimeout(fbDel(key));
+      sdot('');
+    }catch(err){
+      console.error('deleteEntry: Firestore delete failed', err);
+      sdot('off');
+      toast('⚠️ Not saved — check connection and try again');
+    }
   }
   // Clear the matching tag in the properties list too, same reasoning as
   // saveEntry above — keeps map and list in sync in both directions.
@@ -1064,6 +1274,7 @@ function placeMarker(entry){
     L.DomEvent.stopPropagation(ev);
     pendLL={lat:entry.lat,lng:entry.lng};
     window._addr=entry.address;window._sub=entry.suburb;
+    window._addrReady=true; // address already known synchronously — no reverse-geocode wait needed here
     pendSt=entry.status;
     $('shAddr').value=entry.address;
     $('shAddrSuggest').style.display='none'; $('shAddrSuggest').innerHTML='';
@@ -1377,7 +1588,7 @@ function setPTag(a,tag){
   ann[a].tag=ann[a].tag===tag?'':tag;
   const newTag=ann[a].tag;
   // Pass removed ak so saveAnn can clean up _browser entry
-  saveAnn(newTag?null:a);
+  saveAnn(a, newTag?null:a);
   const p=PROPERTY_DATA.find(x=>ak(x)===a);
   if(p){const c=$('pcard-'+safeId(a));if(c)c.outerHTML=propCard(p)}
   const ti=newTag?TAGS.find(x=>x.k===newTag):null;
@@ -1418,7 +1629,7 @@ function savePNote(a){
   const sid=safeId(a);
   const newNote=$('pnote-'+sid)?.value||'';
   ann[a].note=newNote;
-  saveAnn();
+  saveAnn(a);
   const p=PROPERTY_DATA.find(x=>ak(x)===a);
   if(p){
     const c=$('pcard-'+sid);if(c)c.outerHTML=propCard(p);
@@ -1430,7 +1641,7 @@ function savePNote(a){
       const u={...me,notes:newNote,updated_at:new Date().toISOString()};
       entries[me.entry_key]=u;
       placeMarker(u);
-      if(fbSave) fbSave(me.entry_key,u).catch(()=>toast('⚠️ Note not saved to map pin — check connection'));
+      deferUntilReady(()=>fbSave(me.entry_key,u).catch(()=>toast('⚠️ Note not saved to map pin — check connection')));
     }
   }
   toast('💾 Saved');
@@ -1509,13 +1720,20 @@ function unitPointMatches(x, unitNum, rangeTok){
   const uNum = String(unitNum).toUpperCase();
   const hn = (addr.house_number||'').trim();
 
-  // Tier 1: compound "unit/range" or "range/unit" in house_number
+  // Tier 1: compound "unit/range" or "range/unit" in house_number —
+  // handles both '/' (the standard AU convention, e.g. "51/15-19") and a
+  // bare space (some OSM data for this style of complex uses "15-19 51"
+  // instead), since we can't be certain which this complex was mapped with.
   if(hn && rangeTok){
-    const parts = hn.replace(/\s+/g,'').toUpperCase().split('/');
-    if(parts.length===2){
-      const [p1,p2] = parts;
-      if(p1===uNum && houseNumbersMatch(p2, rangeTok)) return true;
-      if(p2===uNum && houseNumbersMatch(p1, rangeTok)) return true;
+    const compact = hn.replace(/\s+/g,'').toUpperCase();
+    const bySlash = compact.split('/');
+    const bySpace = hn.trim().toUpperCase().split(/\s+/);
+    for(const parts of [bySlash, bySpace]){
+      if(parts.length===2){
+        const [p1,p2] = parts;
+        if(p1===uNum && houseNumbersMatch(p2, rangeTok)) return true;
+        if(p2===uNum && houseNumbersMatch(p1, rangeTok)) return true;
+      }
     }
   }
   // Tier 2: house_number is just the bare unit number (no range at all)
@@ -1562,8 +1780,12 @@ async function geocodeAndMark(p, ti){
     const u={...ex, status:ti.k, updated_at:new Date().toISOString()};
     entries[k]=u;
     placeMarker(u); updateBadge();
-    try{if(fbSave)await fbSave(k,u);else throw 0}
-    catch{toast('⚠️ Not saved — check connection and try again')}
+    if(fbSave){
+      try{ await fbSave(k,u); }
+      catch{ toast('⚠️ Not saved — check connection and try again'); }
+    } else {
+      deferUntilReady(()=>fbSave(k,u).catch(()=>toast('⚠️ Not saved — check connection and try again')));
+    }
     return;
   }
 
@@ -1610,46 +1832,104 @@ async function geocodeAndMark(p, ti){
       ln = _geoCache[unitCacheKey].lng;
       exact = true;
     } else if(unitNum!==null && rangeTok){
-      try{
-        const params = new URLSearchParams({
-          street: p.address.trim(),
-          suburb: suburb,
-          state: 'VIC',
-          country: 'Australia',
-          postalcode: postcode,
-          format: 'json',
-          limit: '20', // wider net — a complex can have many address points sharing the same building number
-          addressdetails: '1',
-          viewbox: '144.5,-38.5,145.5,-37.5',
-          bounded: '1'
-        });
-        const d = await queueGeoRequest(async ()=>{
-          const r = await fetch('https://nominatim.openstreetmap.org/search?' + params);
-          if(!r.ok) throw new Error('Nominatim HTTP '+r.status);
-          return r.json();
-        });
-        // Diagnostic logging: if unit-specific matching is still landing on
-        // the wrong point, open the browser console next time and copy this
-        // log — it shows exactly what Nominatim returned (house_number,
-        // flats, display_name, coordinates) for every candidate, which is
-        // what's needed to pin down the real data shape this complex uses.
-        console.log('[geocode] unit search for', p.address, '→', (d||[]).map(x=>({
-          house_number: x.address?.house_number,
-          flats: x.address?.flats||x.address?.unit,
-          display_name: x.display_name,
-          lat: x.lat, lon: x.lon
-        })));
-        const exactMatch = (d||[]).find(x=> unitPointMatches(x, unitNum, rangeTok));
-        if(exactMatch){
-          const xla=parseFloat(exactMatch.lat), xln=parseFloat(exactMatch.lon);
-          if(xla>=-38.5 && xla<=-37.4 && xln>=144.5 && xln<=145.6){
-            la=xla; ln=xln; exact=true;
-            _geoCache[unitCacheKey]={lat:la,lng:ln};
-          }
+      // Runs one Nominatim query and returns its full candidate list (never
+      // throws — errors just yield an empty list so the other query/tier
+      // still gets a chance). Used for both the structured and free-text
+      // tries below, and their combined results feed the soft-match tier
+      // further down too.
+      const tryQuery = async (params, label)=>{
+        try{
+          const d = await queueGeoRequest(async ()=>{
+            const r = await fetch('https://nominatim.openstreetmap.org/search?' + params);
+            if(!r.ok) throw new Error('Nominatim HTTP '+r.status);
+            return r.json();
+          });
+          // Diagnostic logging: if unit-specific matching is still landing
+          // on the wrong point (or missing), open the browser console next
+          // time and copy this log — it shows exactly what Nominatim
+          // returned (house_number, flats, display_name, coordinates) for
+          // every candidate, from both the structured and free-text tries.
+          console.log('[geocode] '+label+' search for', p.address, '→', (d||[]).map(x=>({
+            house_number: x.address?.house_number,
+            flats: x.address?.flats||x.address?.unit,
+            display_name: x.display_name,
+            lat: x.lat, lon: x.lon
+          })));
+          return d||[];
+        }catch(err){
+          console.error('Unit-level geocode ('+label+') failed for', p.address, err);
+          return [];
         }
-      } catch(err){
-        console.error('Unit-level geocode failed for', p.address, err);
-        // fall through to the parent-building lookup below
+      };
+
+      const structuredParams = new URLSearchParams({
+        street: p.address.trim(),
+        suburb: suburb,
+        state: 'VIC',
+        country: 'Australia',
+        postalcode: postcode,
+        format: 'json',
+        limit: '20', // wider net — a complex can have many address points sharing the same building number
+        addressdetails: '1',
+        viewbox: '144.5,-38.5,145.5,-37.5',
+        bounded: '1'
+      });
+      // Free-text fallback — more forgiving of the "unit/range" format
+      // than the structured `street` field, which can fail to parse a
+      // compound house number like "51/15-19" at all.
+      const freeTextParams = new URLSearchParams({
+        q: p.address.trim()+', '+suburb+', VIC '+postcode+', Australia',
+        format: 'json',
+        limit: '20',
+        addressdetails: '1',
+        viewbox: '144.5,-38.5,145.5,-37.5',
+        bounded: '1'
+      });
+
+      const [structuredResults, freeTextResults] = await Promise.all([
+        tryQuery(structuredParams, 'structured'),
+        tryQuery(freeTextParams, 'free-text')
+      ]);
+      const allCandidates = [...structuredResults, ...freeTextResults];
+
+      // Tier A/B: strict match — house_number (or flats/unit field) cleanly
+      // parses into this exact unit + range.
+      let exactMatch = allCandidates.find(x=> unitPointMatches(x, unitNum, rangeTok)) || null;
+
+      // Tier C (soft match): strict parsing found nothing, but exactly one
+      // candidate's raw display text mentions this unit number as its own
+      // word (not part of a longer number) AND is on the right street. This
+      // covers complexes where Nominatim's structured house_number field
+      // doesn't carry the unit at all, but the underlying address text
+      // still does — safer than it sounds because both queries already
+      // filtered to this street/suburb, so "51" showing up isn't a
+      // coincidental match against some unrelated building across town.
+      if(!exactMatch){
+        const streetName = (p.street||'').trim().toUpperCase();
+        const unitWordRe = new RegExp('(^|[^0-9])'+unitNum+'([^0-9]|$)');
+        const softCandidates = allCandidates.filter(x=>{
+          const road = (x.address?.road||'').toUpperCase();
+          if(streetName && road && !road.includes(streetName) && !streetName.includes(road)) return false;
+          const text = ((x.address?.house_number||'')+' '+(x.display_name||''));
+          return unitWordRe.test(text);
+        });
+        // Only trust this if it narrows to exactly one building — if
+        // several candidates all mention "51" (e.g. as part of a postcode
+        // or an unrelated house number on the same street), it's genuinely
+        // ambiguous and we fall through to the shared-building placement
+        // instead of risking a wrong pin.
+        if(softCandidates.length===1){
+          exactMatch = softCandidates[0];
+          console.log('[geocode] soft match used for', p.address, '→', exactMatch.display_name);
+        }
+      }
+
+      if(exactMatch){
+        const xla=parseFloat(exactMatch.lat), xln=parseFloat(exactMatch.lon);
+        if(xla>=-38.5 && xla<=-37.4 && xln>=144.5 && xln<=145.6){
+          la=xla; ln=xln; exact=true;
+          _geoCache[unitCacheKey]={lat:la,lng:ln};
+        }
       }
     }
     } // end anchor-not-set else
@@ -1748,8 +2028,12 @@ async function geocodeAndMark(p, ti){
   entries[key]=entry;
   placeMarker(entry);
   updateBadge();
-  try{if(fbSave) await fbSave(key, entry);else throw 0}
-  catch{toast('⚠️ Not saved — check connection and try again')}
+  if(fbSave){
+    try{ await fbSave(key, entry); }
+    catch{ toast('⚠️ Not saved — check connection and try again'); }
+  } else {
+    deferUntilReady(()=>fbSave(key,entry).catch(()=>toast('⚠️ Not saved — check connection and try again')));
+  }
 
   // Pan map to show the pin (don't zoom in aggressively)
   if(mainTab === 'map'){
@@ -1813,7 +2097,7 @@ document.addEventListener('click',function(e){
   else if(act==='removetag'){
     const _a=decodeAk(t.dataset.ak);
     if(ann[_a])ann[_a].tag='';
-    saveAnn(_a); // passes _a so saveAnn deletes the _browser map entry too
+    saveAnn(_a,_a); // passes _a twice: once as the changed doc, once so saveAnn deletes the matching map pin too
     const _p=PROPERTY_DATA.find(x=>ak(x)===_a);
     if(_p){const _c=$('pcard-'+safeId(_a));if(_c)_c.outerHTML=propCard(_p);}
     toast('Tag removed');
@@ -1836,7 +2120,7 @@ document.querySelectorAll('[data-main]').forEach(b=>b.addEventListener('click',(
 document.querySelectorAll('[data-btab]').forEach(b=>b.addEventListener('click',()=>switchBTab(b.dataset.btab)));
 document.querySelectorAll('[data-suburb]').forEach(b=>b.addEventListener('click',()=>switchSub(b.dataset.suburb)));
 document.querySelectorAll('[data-sf]').forEach(b=>b.addEventListener('click',()=>{sF=b.dataset.sf;document.querySelectorAll('[data-sf]').forEach(x=>x.classList.toggle('on',x.dataset.sf===sF));runSearch()}));
-document.querySelectorAll('[data-st]').forEach(b=>b.addEventListener('click',()=>setPendSt(b.dataset.st)));
+document.querySelectorAll('[data-st]').forEach(b=>b.addEventListener('click',()=>pickStatus(b.dataset.st)));
 
 $('statsBtn').addEventListener('click',openStats);
 $('stClose').addEventListener('click',()=>$('statsPanel').classList.remove('on'));
@@ -1862,7 +2146,7 @@ $('doneBtn').addEventListener('click', async ()=>{
 
 $('locBtn').addEventListener('click',locateMe);
 $('shOv').addEventListener('click',closeSheet);
-$('shSave').addEventListener('click',saveEntry);
+$('shNoteSave').addEventListener('click',saveShNoteOnly);
 $('shDel').addEventListener('click',deleteEntry);
 $('dUndo').addEventListener('click',undoDraw);
 $('dCancel').addEventListener('click',()=>{if(!$('dCancel').onclick)cancelDraw()});
@@ -1945,22 +2229,21 @@ async function initFB(){
     };
 
     // Override saveAnn to persist to Firestore (the only place other
-    // users' browsers will read this from).
+    // users' browsers will read this from). Writes only the doc for the
+    // key that actually changed — previously this rewrote every tag/note
+    // in the whole app on every single save, which was needless write
+    // volume and more surface for a mid-batch failure.
     // NOTE: Firestore doc IDs cannot contain '/' so we base64-encode the ak key
-    saveAnn=function(removedAk){
-      const writes=Object.entries(ann).map(([k,v])=>{
-        const safeKey='ann_'+btoa(unescape(encodeURIComponent(k))).replace(/[^A-Za-z0-9]/g,'_');
-        if(v&&(v.tag||v.note)){
-          return setDoc(doc(db,'door_knocks',safeKey),{_ann:true,ak:k,tag:v.tag||'',note:v.note||''});
-        } else {
-          delete ann[k];
-          return deleteDoc(doc(db,'door_knocks',safeKey));
-        }
-      });
-      Promise.allSettled(writes.map(trackWrite)).then(results=>{
-        if(results.some(r=>r.status==='rejected')) toast('⚠️ Not saved — check connection and try again');
-      });
-      // If a specific tag was removed, also delete its _browser map entry
+    saveAnn=function(changedKey, removedAk){
+      if(changedKey){
+        const v=ann[changedKey];
+        const safeKey='ann_'+btoa(unescape(encodeURIComponent(changedKey))).replace(/[^A-Za-z0-9]/g,'_');
+        const write=(v&&(v.tag||v.note))
+          ? setDoc(doc(db,'door_knocks',safeKey),{_ann:true,ak:changedKey,tag:v.tag||'',note:v.note||''})
+          : (()=>{ delete ann[changedKey]; return deleteDoc(doc(db,'door_knocks',safeKey)); })();
+        trackWrite(write).catch(()=>toast('⚠️ Not saved — check connection and try again'));
+      }
+      // If a specific tag was removed, also delete its matching map pin doc
       if(removedAk){
         const p=PROPERTY_DATA.find(x=>ak(x)===removedAk);
         if(p){
@@ -1974,6 +2257,15 @@ async function initFB(){
         }
       }
     };
+    // One-time catch-up: a tag/note set in the brief window before this
+    // ran was queued (see the placeholder saveAnn above) rather than
+    // silently dropped — push the full current state now.
+    if(_annDirtyBeforeReady){
+      Object.keys(ann).forEach(k=>saveAnn(k));
+      _annDirtyBeforeReady=false;
+    }
+    window._fbReady=true;
+    flushPreReadyQueue();
 
     // Turns a set of door_knocks docs (from either a one-time fetch or the
     // live listener) into the app's in-memory state. This is the single
@@ -2019,6 +2311,10 @@ async function initFB(){
         const isTypingNote=active && active.classList && active.classList.contains('note-in');
         if(!isTypingNote) renderBrowser();
       }
+      // First time entries/ann genuinely reflect the shared server state —
+      // safe now to run anything that was waiting to know what's actually
+      // on the map (see deferUntilDataReady / saveAnn's removedAk cleanup).
+      if(!window._dataReady){ window._dataReady=true; flushPostSyncQueue(); }
     }
     // Catches up any already-tagged pin whose address has a pre-set location
     // (addrLocations) that doesn't match its current coordinates — this
@@ -2064,25 +2360,35 @@ async function initFB(){
     onSnapshot(query(collection(db,'door_knocks')),snap=>{
       applyDocs(snap.docs);
       sdot('');
+      setSyncIssue(false);
       if(window._fbPollTimer){ clearInterval(window._fbPollTimer); window._fbPollTimer=null; }
     },()=>{
       // Live listener couldn't establish (usually a blocked websocket) —
       // never fall back to this device's local cache, since that would
       // show different data to different users. Instead, keep polling
       // Firestore directly on a plain HTTPS read so everyone still
-      // converges on the same shared state.
+      // converges on the same shared state. Surface this distinctly from
+      // the plain-offline banner, since navigator.onLine is still true here.
       sdot('off');
+      if(navigator.onLine) setSyncIssue(true);
       if(!window._fbPollTimer){
         window._fbPollTimer=setInterval(async()=>{
           sdot('syn');
-          sdot((await fetchOnce())?'':'off');
+          const ok=await fetchOnce();
+          sdot(ok?'':'off');
+          setSyncIssue(!ok && navigator.onLine);
         },20000);
       }
     });
   }catch(err){
     console.warn('FB init failed:',err);
     sdot('off');
-    toast('⚠️ Offline — reconnect to see shared data');
+    if(navigator.onLine){
+      setSyncIssue(true);
+      toast('⚠️ Can\'t reach saved data — check your network/firewall');
+    } else {
+      toast('⚠️ Offline — reconnect to see shared data');
+    }
   }
 }
 
@@ -2107,6 +2413,7 @@ function updateOnlineStatus(){
   $('offlineBanner').classList.toggle('on',offline);
   if(offline){
     sdot('off');
+    setSyncIssue(false); // the plain offline banner covers it; don't show both
   } else if(window._fbDb){
     // Back online — nudge Firestore to reconnect right away rather than
     // waiting for its own retry backoff.
@@ -2117,6 +2424,68 @@ function updateOnlineStatus(){
 }
 window.addEventListener('online',updateOnlineStatus);
 window.addEventListener('offline',updateOnlineStatus);
+
+// ─── THEME (light/dark) ────────────────────────────────────────
+// Preference is purely a device display setting, not shared app data —
+// stored locally, unlike everything else in this app which lives only
+// in Firestore.
+function applyTheme(dark){
+  document.body.classList.toggle('dark',dark);
+  const btn=$('themeBtn'); if(btn) btn.textContent=dark?'☀️':'🌙';
+}
+function toggleTheme(){
+  const dark=!document.body.classList.contains('dark');
+  applyTheme(dark);
+  try{ localStorage.setItem('skd_theme', dark?'dark':'light'); }catch(e){}
+}
+(function initTheme(){
+  let pref=null;
+  try{ pref=localStorage.getItem('skd_theme'); }catch(e){}
+  const dark = pref ? pref==='dark' : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  applyTheme(dark);
+})();
+$('themeBtn').addEventListener('click',toggleTheme);
+
+// ─── LEGEND COLLAPSE ────────────────────────────────────────────
+function toggleLegend(){
+  const on=$('legend').classList.toggle('collapsed');
+  $('legendArr').textContent=on?'▸':'▾';
+  try{ localStorage.setItem('skd_legend_collapsed', on?'1':'0'); }catch(e){}
+}
+$('legendHdr').addEventListener('click',toggleLegend);
+(function initLegend(){
+  let pref=null;
+  try{ pref=localStorage.getItem('skd_legend_collapsed'); }catch(e){}
+  // Default to collapsed on short/landscape viewports where it's most
+  // likely to crowd the badge below it; otherwise honor whatever the
+  // user last chose.
+  const collapse = pref!==null ? pref==='1' : window.innerHeight<420;
+  if(collapse){ $('legend').classList.add('collapsed'); $('legendArr').textContent='▸'; }
+})();
+
+// ─── CLOSE/LEAVE WARNING ────────────────────────────────────────
+// Warns before the tab/browser actually closes if there's anything not
+// yet confirmed saved — reuses the same _preReadyQueue/_pendingWrites
+// counters the "N unsynced" badge and the ✅ Done button already track.
+// Browsers show their own generic "leave site?" text regardless of what
+// string we set (a security measure so pages can't fake official-looking
+// dialogs) — the useful part is that it only appears at all when there's
+// something genuinely unsaved, and cancelling it keeps you on the page
+// so the pending write(s) get a chance to finish.
+// Known limitation: this only works reliably on desktop browser tabs.
+// iOS/Android — especially a home-screen-installed PWA in standalone
+// mode — often don't fire beforeunload at all when the app is closed or
+// backgrounded; that's a platform limitation, not something fixable from
+// here. The save-queue and visible "N unsynced" badge are what actually
+// protect data on mobile — this dialog is a bonus for desktop use only.
+window.addEventListener('beforeunload', function(e){
+  const pending = _preReadyQueue.length + (window._pendingWrites||0);
+  if(pending>0){
+    e.preventDefault();
+    e.returnValue=''; // required by Chrome to trigger the native prompt
+    return '';
+  }
+});
 
 // ─── BOOT ───────────────────────────────────────────────────
 loadAnn();
