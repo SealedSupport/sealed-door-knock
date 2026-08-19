@@ -264,7 +264,9 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .st-close{position:fixed;top:max(env(safe-area-inset-top),12px);right:14px;
   background:var(--card);border:1.5px solid var(--border);border-radius:8px;
   color:var(--text);font-size:14px;padding:5px 12px;cursor:pointer;z-index:2001;font-weight:700}
-.st-title{font-size:22px;font-weight:800;margin-bottom:3px}
+.st-title{font-size:22px;font-weight:800;margin-bottom:10px}
+.st-period-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px;padding-bottom:2px}
+.st-period-row::-webkit-scrollbar{display:none}
 .st-sub{color:var(--sub);font-size:13px;margin-bottom:16px}
 .st-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px}
 .st-card{background:var(--card);border:1px solid var(--border);border-radius:10px;
@@ -279,6 +281,24 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .pw-c{color:var(--sub);font-size:11px}
 .pw-bg{height:5px;background:var(--bg);border-radius:3px;overflow:hidden}
 .pw-fill{height:100%;border-radius:3px;transition:width .5s}
+.st-today-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px}
+.st-today-card{background:var(--card);border:1.5px solid var(--blue);border-radius:10px;
+  padding:12px;text-align:center}
+.st-today-val{font-size:26px;font-weight:800;line-height:1;color:var(--blue)}
+.st-today-lbl{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--sub);margin-top:3px}
+.rp-btn{width:100%;background:var(--blue);color:#fff;border:none;border-radius:10px;
+  padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;
+  display:flex;align-items:center;justify-content:center;gap:6px}
+.rp-btn:active{opacity:.85}
+.rp-box{display:none;margin-bottom:16px}
+.rp-box.on{display:block}
+.rp-text{width:100%;min-height:220px;background:var(--card);border:1.5px solid var(--border);
+  border-radius:10px;padding:12px;font-size:12.5px;line-height:1.5;color:var(--text);
+  font-family:var(--f);resize:vertical;white-space:pre-wrap}
+.rp-actions{display:flex;gap:8px;margin-top:8px}
+.rp-actions button{flex:1;padding:10px;border-radius:9px;font-size:12.5px;font-weight:700;
+  border:1.5px solid var(--border);background:var(--card);color:var(--text);cursor:pointer}
+.rp-actions button.primary{background:var(--blue);border-color:var(--blue);color:#fff}
 
 /* ══ TOAST ══ */
 /* Monday form sheet */
@@ -451,8 +471,24 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
 <div class="stats" id="statsPanel">
   <button class="st-close" id="stClose">✕ Close</button>
   <div class="st-title">Stats</div>
+  <div class="st-period-row" id="stPeriodRow">
+    <button class="sp on" data-period="today">Today</button>
+    <button class="sp" data-period="week">This Week</button>
+    <button class="sp" data-period="month">This Month</button>
+    <button class="sp" data-period="quarter">This Quarter</button>
+    <button class="sp" data-period="year">This Year</button>
+    <button class="sp" data-period="all">All Time</button>
+  </div>
   <div class="st-sub" id="stDate"></div>
   <div id="stContent"></div>
+  <button class="rp-btn" id="stReportBtn">📧 Send Report</button>
+  <div class="rp-box" id="stReportBox">
+    <textarea class="rp-text" id="stReportText" readonly></textarea>
+    <div class="rp-actions">
+      <button id="stReportCopy">📋 Copy</button>
+      <button class="primary" id="stReportEmail">✉️ Open in Email</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1326,21 +1362,198 @@ function locateMe(){
 }
 
 // ─── STATS ──────────────────────────────────────────────────
+// Which reporting window is currently selected in the Stats panel —
+// driven by the period chips (Today/Week/Month/Quarter/Year/All Time).
+let stPeriod='today';
+
+// ── Period math ──
+// Calendar-based ranges (not rolling windows) so "This Month" always
+// means the actual calendar month etc. — what a rep or manager expects
+// from a reporting filter. All-time entries have no meaningful start,
+// so 'all' just spans from the epoch to now.
+function startOfWeek(d){ const day=(d.getDay()+6)%7; const s=new Date(d.getFullYear(),d.getMonth(),d.getDate()-day); return s; }
+function startOfMonth(d){ return new Date(d.getFullYear(),d.getMonth(),1); }
+function startOfQuarter(d){ const q=Math.floor(d.getMonth()/3); return new Date(d.getFullYear(),q*3,1); }
+function startOfYear(d){ return new Date(d.getFullYear(),0,1); }
+function periodRange(period){
+  const now=new Date();
+  const end=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59,999);
+  let start;
+  switch(period){
+    case 'today':   start=new Date(now.getFullYear(),now.getMonth(),now.getDate()); break;
+    case 'week':    start=startOfWeek(now); break;
+    case 'month':   start=startOfMonth(now); break;
+    case 'quarter': start=startOfQuarter(now); break;
+    case 'year':    start=startOfYear(now); break;
+    default:        start=new Date(0); // 'all'
+  }
+  return {start,end};
+}
+// Human label for the selected period, used in both the panel header
+// and the report text so they always describe the same window.
+function periodLabel(period){
+  const now=new Date();
+  const {start}=periodRange(period);
+  const short=d=>d.toLocaleDateString('en-AU',{day:'numeric',month:'short'});
+  switch(period){
+    case 'today':   return now.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    case 'week':    return 'Week of '+short(start)+' – '+short(now);
+    case 'month':   return now.toLocaleDateString('en-AU',{month:'long',year:'numeric'});
+    case 'quarter': return 'Q'+(Math.floor(now.getMonth()/3)+1)+' '+now.getFullYear();
+    case 'year':    return String(now.getFullYear());
+    default:        return 'All Time (through '+short(now)+')';
+  }
+}
+// Every entry last touched within the selected period, across all suburbs.
+function getEntriesForPeriod(period){
+  if(period==='all') return Object.values(entries);
+  const {start,end}=periodRange(period);
+  return Object.values(entries).filter(e=>{
+    if(!e.updated_at) return false;
+    const dt=new Date(e.updated_at);
+    return dt>=start && dt<=end;
+  });
+}
+// Sums the per-day time-in-app figures (see TIME-IN-APP TRACKING below)
+// that fall inside the selected period. Each day's total lives under its
+// own 'skd_time_YYYY-M-D' localStorage key, so a week/month/quarter/year
+// figure is just those keys added together — no separate rollup needed.
+function getTimeSpentMs(period){
+  _flushTimeTracked(); // make sure today's partial session is up to date first
+  const {start,end}=periodRange(period);
+  let total=0;
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(!k || !k.startsWith('skd_time_')) continue;
+      const parts=k.slice(9).split('-');
+      if(parts.length!==3) continue;
+      const d=new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+      if(d>=new Date(start.getFullYear(),start.getMonth(),start.getDate()) && d<=end){
+        total+=parseInt(localStorage.getItem(k)||'0',10);
+      }
+    }
+  }catch(e){}
+  return total;
+}
+function getTimeSpentTodayMs(){ return getTimeSpentMs('today'); }
+
+function switchStatsPeriod(period){
+  stPeriod=period;
+  document.querySelectorAll('#stPeriodRow [data-period]').forEach(b=>b.classList.toggle('on',b.dataset.period===period));
+  renderStatsContent();
+  // Keep an already-open report preview in sync with the newly-selected
+  // period rather than leaving it showing the old window's numbers.
+  if($('stReportBox').classList.contains('on')) $('stReportText').value=buildReportText();
+}
+function renderStatsContent(){
+  const periodEntries=getEntriesForPeriod(stPeriod);
+  const periodTotal=periodEntries.length;
+  const byS=Object.fromEntries(Object.keys(ST).map(k=>[k,0]));
+  periodEntries.forEach(e=>{if(byS[e.status]!==undefined)byS[e.status]++});
+  const byU={};['highett','cheltenham','mentone'].forEach(s=>{byU[s]=periodEntries.filter(e=>(e.suburb||'').toLowerCase().includes(s)).length});
+  const timeMs=getTimeSpentMs(stPeriod);
+
+  $('stDate').textContent=periodLabel(stPeriod)+' · '+periodTotal+' recorded';
+
+  let h='<div class="st-today-grid">';
+  h+='<div class="st-today-card"><div class="st-today-val">'+periodTotal+'</div><div class="st-today-lbl">Doors</div></div>';
+  h+='<div class="st-today-card"><div class="st-today-val">'+fmtDuration(timeMs)+'</div><div class="st-today-lbl">Time In App</div></div>';
+  h+='</div>';
+  h+='<div class="st-hdr" style="margin-top:0">By Status</div>';
+  if(periodTotal>0){
+    Object.entries(ST).forEach(([k,s])=>{
+      const c=byS[k]||0; if(!c) return;
+      const pct=Math.round(c/periodTotal*100);
+      h+='<div class="pw"><div class="pw-top"><span>'+s.emoji+' '+s.label+'</span><span class="pw-c">'+c+' ('+pct+'%)</span></div><div class="pw-bg"><div class="pw-fill" style="width:'+pct+'%;background:'+s.color+'"></div></div></div>';
+    });
+  } else {
+    h+='<div class="pw" style="text-align:center;color:var(--sub)">Nothing tagged in this period</div>';
+  }
+  h+='<div class="st-hdr">By Suburb</div>';
+  ['highett','cheltenham','mentone'].forEach(s=>{
+    const c=byU[s]||0, pct=periodTotal>0?Math.round(c/periodTotal*100):0;
+    h+='<div class="pw"><div class="pw-top"><span style="text-transform:capitalize">'+s+'</span><span class="pw-c">'+c+'</span></div><div class="pw-bg"><div class="pw-fill" style="width:'+pct+'%;background:var(--blue)"></div></div></div>';
+  });
+  $('stContent').innerHTML=h;
+}
 function openStats(){
   $('statsPanel').classList.add('on');
-  const all=Object.values(entries),total=all.length;
-  $('stDate').textContent='All time · '+total+' recorded';
+  // Collapse any report preview left open from a previous visit so the
+  // panel always opens back on the stats view, not mid-report.
+  $('stReportBox').classList.remove('on');
+  $('stReportBtn').textContent='📧 Send Report';
+  renderStatsContent();
+}
+
+// ─── EMAIL-READY REPORT ─────────────────────────────────────
+// Builds a plain-text summary for whichever period is currently
+// selected in the Stats panel, formatted to paste straight into an
+// email or Slack message — no HTML/markdown, so it survives any mail
+// client's plain-text conversion untouched.
+function buildReportText(){
+  const period=stPeriod;
+  const periodEntries=getEntriesForPeriod(period);
+  const total=periodEntries.length;
   const byS=Object.fromEntries(Object.keys(ST).map(k=>[k,0]));
-  all.forEach(e=>{if(byS[e.status]!==undefined)byS[e.status]++});
-  const byU={};['highett','cheltenham','mentone'].forEach(s=>{byU[s]=all.filter(e=>(e.suburb||'').toLowerCase().includes(s)).length});
-  // 4-col grid of top counts
-  const top4=[['map_lap','#16a34a','MAP/LAP'],['drop_email','#1e6fbb','Drop/Email'],['no_access','#4b5563','No Access'],['recent_sale','#7c3aed','Recent Sale']];
-  let h='<div class="st-grid">'+top4.map(([k,c,l])=>'<div class="st-card"><div class="st-val" style="color:'+c+'">'+byS[k]+'</div><div class="st-lbl">'+l+'</div></div>').join('')+'</div>';
-  h+='<div class="st-hdr">By Status</div>';
-  Object.entries(ST).forEach(([k,s])=>{const c=byS[k]||0,pct=total>0?Math.round(c/total*100):0;h+='<div class="pw"><div class="pw-top"><span>'+s.emoji+' '+s.label+'</span><span class="pw-c">'+c+' ('+pct+'%)</span></div><div class="pw-bg"><div class="pw-fill" style="width:'+pct+'%;background:'+s.color+'"></div></div></div>'});
-  h+='<div class="st-hdr">By Suburb</div>';
-  ['highett','cheltenham','mentone'].forEach(s=>{const c=byU[s]||0,pct=total>0?Math.round(c/total*100):0;h+='<div class="pw"><div class="pw-top"><span style="text-transform:capitalize">'+s+'</span><span class="pw-c">'+c+'</span></div><div class="pw-bg"><div class="pw-fill" style="width:'+pct+'%;background:var(--blue)"></div></div></div>'});
-  $('stContent').innerHTML=h;
+  periodEntries.forEach(e=>{if(byS[e.status]!==undefined)byS[e.status]++});
+  const byU={};['highett','cheltenham','mentone'].forEach(s=>{byU[s]=periodEntries.filter(e=>(e.suburb||'').toLowerCase().includes(s)).length});
+
+  let lines=[];
+  lines.push('DOOR KNOCK REPORT — '+periodLabel(period));
+  lines.push('');
+  lines.push('Doors: '+total);
+  lines.push('Time in app: '+fmtDuration(getTimeSpentMs(period)));
+  lines.push('');
+  lines.push('Breakdown:');
+  let any=false;
+  Object.entries(ST).forEach(([k,s])=>{
+    const c=byS[k]||0; if(!c) return;
+    any=true;
+    lines.push('  '+s.emoji+' '+s.label+': '+c);
+  });
+  if(!any) lines.push('  (nothing tagged in this period)');
+  lines.push('');
+  lines.push('By suburb:');
+  ['highett','cheltenham','mentone'].forEach(s=>{
+    lines.push('  '+s.charAt(0).toUpperCase()+s.slice(1)+': '+(byU[s]||0));
+  });
+  lines.push('');
+  lines.push('— Sent from Sealed Door Knock');
+  return lines.join('\n');
+}
+function toggleReportBox(){
+  const box=$('stReportBox');
+  const opening=!box.classList.contains('on');
+  if(opening){
+    $('stReportText').value=buildReportText();
+    box.classList.add('on');
+    $('stReportBtn').textContent='📧 Hide Report';
+  } else {
+    box.classList.remove('on');
+    $('stReportBtn').textContent='📧 Send Report';
+  }
+}
+async function copyReportText(){
+  const text=$('stReportText').value;
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+    } else {
+      // Fallback for browsers/webviews without the async Clipboard API
+      const ta=$('stReportText');
+      ta.select(); ta.setSelectionRange(0,999999);
+      document.execCommand('copy');
+    }
+    toast('📋 Report copied — paste into your email');
+  }catch(err){
+    toast('⚠️ Could not copy — select the text manually');
+  }
+}
+function emailReportText(){
+  const subject=encodeURIComponent('Door Knock Report — '+periodLabel(stPeriod));
+  const body=encodeURIComponent($('stReportText').value);
+  window.location.href='mailto:?subject='+subject+'&body='+body;
 }
 
 // ─── EXPORT ───────────────────────────────────────────────────
@@ -2138,6 +2351,10 @@ document.querySelectorAll('[data-st]').forEach(b=>b.addEventListener('click',()=
 
 $('statsBtn').addEventListener('click',openStats);
 $('stClose').addEventListener('click',()=>$('statsPanel').classList.remove('on'));
+$('stReportBtn').addEventListener('click',toggleReportBox);
+$('stReportCopy').addEventListener('click',copyReportText);
+$('stReportEmail').addEventListener('click',emailReportText);
+document.querySelectorAll('#stPeriodRow [data-period]').forEach(b=>b.addEventListener('click',()=>switchStatsPeriod(b.dataset.period)));
 $('exportBtn').addEventListener('click',exportUpdatesCSV);
 $('clearSecBtn').addEventListener('click',clearSections);
 
@@ -2468,6 +2685,53 @@ function toggleTheme(){
   applyTheme(dark);
 })();
 $('themeBtn').addEventListener('click',toggleTheme);
+
+// ─── TIME-IN-APP TRACKING (device-local, resets daily) ─────────
+// There's no login system — the app is shared/unauthenticated across
+// reps' own phones — so "time in app" is inherently per-device, not
+// per-rep. Tracked as active (foreground, unlocked) time only, via the
+// Page Visibility API, and persisted to localStorage under a
+// date-stamped key so it survives reloads but naturally resets each
+// calendar day. This is a device display/usage stat, not shared app
+// data, so — like the theme preference above — it never touches
+// Firestore.
+function _timeTrackKey(d=new Date()){
+  return 'skd_time_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+let _timeTrackStart = (typeof document!=='undefined' && document.visibilityState==='visible') ? Date.now() : null;
+function _flushTimeTracked(){
+  if(_timeTrackStart==null) return;
+  const now=Date.now();
+  const elapsed=now-_timeTrackStart;
+  _timeTrackStart=now; // reset the window so repeated flushes don't double-count
+  if(elapsed<=0) return;
+  try{
+    const k=_timeTrackKey();
+    const cur=parseInt(localStorage.getItem(k)||'0',10);
+    localStorage.setItem(k, String(cur+elapsed));
+  }catch(e){}
+}
+// Flush periodically so time survives an unexpected close (tab kill,
+// app swipe-away) rather than only being saved on a clean unload.
+setInterval(_flushTimeTracked, 15000);
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){
+    _flushTimeTracked();
+    _timeTrackStart=null;
+  } else {
+    _timeTrackStart=Date.now();
+  }
+});
+window.addEventListener('beforeunload', _flushTimeTracked);
+// getTimeSpentTodayMs is defined in the STATS section above as a thin
+// wrapper over getTimeSpentMs('today'), which itself relies on
+// _flushTimeTracked/_timeTrackKey defined here — both are function
+// declarations, so hoisting makes the ordering safe either way.
+function fmtDuration(ms){
+  const totalMin=Math.max(0,Math.round(ms/60000));
+  const h=Math.floor(totalMin/60), m=totalMin%60;
+  return h>0 ? (h+'h '+m+'m') : (m+'m');
+}
 
 // ─── LEGEND COLLAPSE ────────────────────────────────────────────
 function toggleLegend(){
