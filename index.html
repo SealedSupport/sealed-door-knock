@@ -119,6 +119,37 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .dlbl{font-size:12px;font-weight:700;color:#92650a;flex:1}
 .dbt{padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer}
 
+/* ══ DOOR KNOCK SESSION (FAB / live pill / menu) ══ */
+/* Fixed at the body level (not inside .map-wrap) so it stays visible and
+   in the same spot across both the Map and Properties tabs. */
+.knock-fab{position:fixed;left:14px;bottom:max(env(safe-area-inset-bottom),14px);z-index:800;
+  width:52px;height:52px;border-radius:50%;background:var(--blue);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  box-shadow:0 3px 12px rgba(29,63,187,.4);cursor:pointer;border:none}
+.knock-fab:active{opacity:.85}
+.knock-pill{position:fixed;left:14px;bottom:max(env(safe-area-inset-bottom),14px);z-index:800;
+  display:none;align-items:stretch;background:var(--card);border:1.5px solid var(--border);
+  border-radius:99px;box-shadow:0 3px 14px rgba(0,0,0,.18);overflow:hidden}
+.kp-count{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border:none;background:var(--blue);color:#fff;cursor:pointer;padding:7px 16px;gap:0;min-width:56px}
+.kp-count:active{opacity:.88}
+.kp-num{font-size:18px;font-weight:800;line-height:1}
+.kp-lbl{font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.85;margin-top:1px}
+.kp-count.pulse{animation:kpulse .28s ease}
+@keyframes kpulse{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
+.kp-time{display:flex;align-items:center;gap:6px;border:none;background:transparent;
+  color:var(--text);cursor:pointer;padding:7px 14px 7px 12px;font-size:13px;font-weight:700;
+  font-variant-numeric:tabular-nums}
+.kp-menu{color:var(--sub);font-size:15px;font-weight:800}
+.knock-menu{display:none;position:fixed;left:14px;bottom:calc(max(env(safe-area-inset-bottom),14px) + 60px);
+  z-index:801;background:var(--card);border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 4px 18px rgba(0,0,0,.2);overflow:hidden;min-width:190px;flex-direction:column}
+.knock-menu button{border:none;background:none;text-align:left;padding:11px 14px;font-size:13px;
+  font-weight:600;color:var(--text);cursor:pointer;border-bottom:1px solid var(--border)}
+.knock-menu button:last-child{border-bottom:none;color:var(--sub);font-weight:600}
+.knock-menu button:active{background:var(--bg)}
+.km-end{color:#dc2626!important}
+
 /* ══ BROWSER PANEL ══ */
 .sub-tabs{display:flex;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
 .bc-row{padding:9px 14px;background:var(--card);border-bottom:1px solid var(--border);
@@ -433,6 +464,24 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
   </div>
 </div>
 
+<!-- DOOR KNOCK SESSION -->
+<button class="knock-fab" id="knockFab" title="Start a knocking session">🚪</button>
+<div class="knock-pill" id="knockPill">
+  <button class="kp-count" id="kpCount" title="Tap to log a knock">
+    <span class="kp-num" id="kpNum">0</span>
+    <span class="kp-lbl">Knocks</span>
+  </button>
+  <button class="kp-time" id="kpTime" title="Session options">
+    <span id="kpTimer">00:00</span>
+    <span class="kp-menu">⋯</span>
+  </button>
+</div>
+<div class="knock-menu" id="knockMenu">
+  <button id="kmUndo">↩️ Undo last knock</button>
+  <button id="kmEnd" class="km-end">⏹ End session</button>
+  <button id="kmCancel">Cancel</button>
+</div>
+
 <!-- BOTTOM SHEET (map tap) -->
 <div class="ov" id="shOv"></div>
 <div class="sheet" id="sheet">
@@ -584,7 +633,7 @@ let mainTab='map', bTab='browse';
 let bLvl='sections', bSec=null, bStr=null, bQ='', bOE='all';
 let sF='all', sDebounce=null;
 let ann={};
-let fbSave=null, fbDel=null, fbSaveSecs=null, fbSaveAnchor=null, fbSaveAddrLoc=null;
+let fbSave=null, fbDel=null, fbSaveSecs=null, fbSaveAnchor=null, fbSaveAddrLoc=null, fbSaveKnockActive=null, fbDelKnockActive=null, fbSaveKnockSession=null;
 // In-memory section store, populated from Firestore only — nothing here
 // is ever read from or written to this browser's local storage.
 const secsCache={};
@@ -1219,7 +1268,7 @@ async function saveEntry(){
   // Firestore happens afterward, in the background. Previously this awaited
   // Firestore before touching the UI at all, so a hung/offline write left
   // the sheet stuck open with nothing saved.
-  entries[key]=entry;placeMarker(entry);updateBadge();
+  entries[key]=entry;placeMarker(entry);updateBadge();noteSessionTag();
   // Keep pendLL in sync with where this entry actually lives — saveEntry
   // can reuse an existing pin's coordinates rather than the ones just
   // tapped (see "existing" above), so the key here can differ from
@@ -1414,29 +1463,6 @@ function getEntriesForPeriod(period){
     return dt>=start && dt<=end;
   });
 }
-// Sums the per-day time-in-app figures (see TIME-IN-APP TRACKING below)
-// that fall inside the selected period. Each day's total lives under its
-// own 'skd_time_YYYY-M-D' localStorage key, so a week/month/quarter/year
-// figure is just those keys added together — no separate rollup needed.
-function getTimeSpentMs(period){
-  _flushTimeTracked(); // make sure today's partial session is up to date first
-  const {start,end}=periodRange(period);
-  let total=0;
-  try{
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i);
-      if(!k || !k.startsWith('skd_time_')) continue;
-      const parts=k.slice(9).split('-');
-      if(parts.length!==3) continue;
-      const d=new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
-      if(d>=new Date(start.getFullYear(),start.getMonth(),start.getDate()) && d<=end){
-        total+=parseInt(localStorage.getItem(k)||'0',10);
-      }
-    }
-  }catch(e){}
-  return total;
-}
-function getTimeSpentTodayMs(){ return getTimeSpentMs('today'); }
 
 function switchStatsPeriod(period){
   stPeriod=period;
@@ -1452,14 +1478,20 @@ function renderStatsContent(){
   const byS=Object.fromEntries(Object.keys(ST).map(k=>[k,0]));
   periodEntries.forEach(e=>{if(byS[e.status]!==undefined)byS[e.status]++});
   const byU={};['highett','cheltenham','mentone'].forEach(s=>{byU[s]=periodEntries.filter(e=>(e.suburb||'').toLowerCase().includes(s)).length});
-  const timeMs=getTimeSpentMs(stPeriod);
+  const knockStats=getKnockStatsForPeriod(stPeriod);
 
   $('stDate').textContent=periodLabel(stPeriod)+' · '+periodTotal+' recorded';
 
   let h='<div class="st-today-grid">';
   h+='<div class="st-today-card"><div class="st-today-val">'+periodTotal+'</div><div class="st-today-lbl">Doors</div></div>';
-  h+='<div class="st-today-card"><div class="st-today-val">'+fmtDuration(timeMs)+'</div><div class="st-today-lbl">Time In App</div></div>';
+  h+='<div class="st-today-card"><div class="st-today-val">'+knockStats.knocks+'</div><div class="st-today-lbl">Knocks</div></div>';
   h+='</div>';
+  if(knockStats.sessions>0){
+    h+='<div class="st-hdr" style="margin-top:0">Knock Sessions</div>';
+    h+='<div class="pw"><div class="pw-top"><span>🚪 Sessions</span><span class="pw-c">'+knockStats.sessions+'</span></div></div>';
+    h+='<div class="pw"><div class="pw-top"><span>⏱ Time knocking</span><span class="pw-c">'+fmtDuration(knockStats.durationMs)+'</span></div></div>';
+    h+='<div class="pw"><div class="pw-top"><span>📊 Knocks/hour</span><span class="pw-c">'+knockStats.perHour+'</span></div></div>';
+  }
   h+='<div class="st-hdr" style="margin-top:0">By Status</div>';
   if(periodTotal>0){
     Object.entries(ST).forEach(([k,s])=>{
@@ -1500,10 +1532,14 @@ function buildReportText(){
   const byU={};['highett','cheltenham','mentone'].forEach(s=>{byU[s]=periodEntries.filter(e=>(e.suburb||'').toLowerCase().includes(s)).length});
 
   let lines=[];
+  const knockStats=getKnockStatsForPeriod(period);
   lines.push('DOOR KNOCK REPORT — '+periodLabel(period));
   lines.push('');
   lines.push('Doors: '+total);
-  lines.push('Time in app: '+fmtDuration(getTimeSpentMs(period)));
+  lines.push('Knocks: '+knockStats.knocks);
+  if(knockStats.sessions>0){
+    lines.push('Knock sessions: '+knockStats.sessions+' ('+fmtDuration(knockStats.durationMs)+' knocking, '+knockStats.perHour+'/hr)');
+  }
   lines.push('');
   lines.push('Breakdown:');
   let any=false;
@@ -2006,7 +2042,7 @@ async function geocodeAndMark(p, ti){
     const k=ex.entry_key;
     const u={...ex, status:ti.k, updated_at:new Date().toISOString()};
     entries[k]=u;
-    placeMarker(u); updateBadge();
+    placeMarker(u); updateBadge(); noteSessionTag();
     if(fbSave){
       try{ await fbSave(k,u); }
       catch{ toast('⚠️ Not saved — check connection and try again'); }
@@ -2255,6 +2291,7 @@ async function geocodeAndMark(p, ti){
   entries[key]=entry;
   placeMarker(entry);
   updateBadge();
+  noteSessionTag();
   if(fbSave){
     try{ await fbSave(key, entry); }
     catch{ toast('⚠️ Not saved — check connection and try again'); }
@@ -2453,6 +2490,14 @@ async function initFB(){
     fbSaveSecs=(s,v)=>trackWrite(setDoc(doc(db,'door_knocks','_secs_'+s),{_sections:true,suburb:s,data:JSON.stringify(v)}).catch(e=>{console.warn('saveSecs FB error',e);toast('⚠️ Not saved — check connection and try again')}));
     fbSaveAnchor=(key,suburb,parentAddress,lat,lng)=>trackWrite(setDoc(doc(db,'door_knocks','_anchor_'+safeId(key)),{_anchor:true,key,suburb,parentAddress,lat,lng}).catch(e=>{console.warn('saveAnchor FB error',e);toast('⚠️ Not saved — check connection and try again')}));
     fbSaveAddrLoc=(key,address,suburb,lat,lng)=>trackWrite(setDoc(doc(db,'door_knocks','_addrloc_'+safeId(key)),{_addrloc:true,key,address,suburb,lat,lng}).catch(e=>{console.warn('saveAddrLoc FB error',e);toast('⚠️ Not saved — check connection and try again')}));
+    // Door knock sessions — same collection, same trackWrite/pending-badge
+    // machinery as everything above. The active doc is keyed by this
+    // device's ID (see KNOCK_DEVICE_ID) so simultaneous sessions on
+    // different phones don't overwrite each other; completed sessions get
+    // their own permanent doc, shared and visible to every device.
+    fbSaveKnockActive=(data)=>trackWrite(setDoc(doc(db,'door_knocks','_knockactive_'+safeId(KNOCK_DEVICE_ID)),{_knockActive:true,...data}));
+    fbDelKnockActive=()=>trackWrite(deleteDoc(doc(db,'door_knocks','_knockactive_'+safeId(KNOCK_DEVICE_ID))));
+    fbSaveKnockSession=(id,data)=>trackWrite(setDoc(doc(db,'door_knocks',id),{_knockSession:true,...data}));
 
     saveSecs=function(s,v){
       secsCache[s]=v;
@@ -2506,7 +2551,9 @@ async function initFB(){
       entries={};
       complexAnchors={};
       addrLocations={};
+      knockSessions={};
       const snapAnn={};
+      let restoredActive=null;
       docs.forEach(d=>{
         const data=d.data();
         if(data._sections){
@@ -2524,6 +2571,15 @@ async function initFB(){
           if(data.key && typeof data.lat==='number' && typeof data.lng==='number'){
             addrLocations[data.key]={lat:data.lat,lng:data.lng};
           }
+        } else if(data._knockSession){
+          knockSessions[d.id]=data;
+        } else if(data._knockActive){
+          // Only this device's own active doc should drive the local
+          // pill/timer — another device's in-progress session isn't
+          // something to show here (no rep-identity system to label whose
+          // it is), but OUR OWN active doc surviving a reload is exactly
+          // what recovers an in-progress count instead of losing it.
+          if(data.deviceId===KNOCK_DEVICE_ID) restoredActive=data;
         } else {
           entries[d.id]=data;
         }
@@ -2532,6 +2588,15 @@ async function initFB(){
       renderSecs();renderSecPills();
       renderMarkers();updateBadge();
       reconcileAddrLocations();
+      // Recover an in-progress session for this device (e.g. after a
+      // reload) from the shared doc, rather than starting fresh —
+      // Firestore is the durable source of truth here, not local memory.
+      if(restoredActive && !knockSession){
+        knockSession={start:restoredActive.start, knocks:restoredActive.knocks||0, tagged:restoredActive.tagged||0};
+        renderKnockUI();
+        if(!_knockTimerInt) _knockTimerInt=setInterval(renderKnockUI, 1000);
+      }
+      if($('statsPanel').classList.contains('on')) renderStatsContent();
       if(mainTab==='browser'){
         // Refresh whatever browse level is showing so tag/note/status
         // changes from any user, on any browser, appear here in real time.
@@ -2686,52 +2751,157 @@ function toggleTheme(){
 })();
 $('themeBtn').addEventListener('click',toggleTheme);
 
-// ─── TIME-IN-APP TRACKING (device-local, resets daily) ─────────
-// There's no login system — the app is shared/unauthenticated across
-// reps' own phones — so "time in app" is inherently per-device, not
-// per-rep. Tracked as active (foreground, unlocked) time only, via the
-// Page Visibility API, and persisted to localStorage under a
-// date-stamped key so it survives reloads but naturally resets each
-// calendar day. This is a device display/usage stat, not shared app
-// data, so — like the theme preference above — it never touches
-// Firestore.
-function _timeTrackKey(d=new Date()){
-  return 'skd_time_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
-let _timeTrackStart = (typeof document!=='undefined' && document.visibilityState==='visible') ? Date.now() : null;
-function _flushTimeTracked(){
-  if(_timeTrackStart==null) return;
-  const now=Date.now();
-  const elapsed=now-_timeTrackStart;
-  _timeTrackStart=now; // reset the window so repeated flushes don't double-count
-  if(elapsed<=0) return;
-  try{
-    const k=_timeTrackKey();
-    const cur=parseInt(localStorage.getItem(k)||'0',10);
-    localStorage.setItem(k, String(cur+elapsed));
-  }catch(e){}
-}
-// Flush periodically so time survives an unexpected close (tab kill,
-// app swipe-away) rather than only being saved on a clean unload.
-setInterval(_flushTimeTracked, 15000);
-document.addEventListener('visibilitychange', ()=>{
-  if(document.hidden){
-    _flushTimeTracked();
-    _timeTrackStart=null;
-  } else {
-    _timeTrackStart=Date.now();
-  }
-});
-window.addEventListener('beforeunload', _flushTimeTracked);
-// getTimeSpentTodayMs is defined in the STATS section above as a thin
-// wrapper over getTimeSpentMs('today'), which itself relies on
-// _flushTimeTracked/_timeTrackKey defined here — both are function
-// declarations, so hoisting makes the ordering safe either way.
 function fmtDuration(ms){
   const totalMin=Math.max(0,Math.round(ms/60000));
   const h=Math.floor(totalMin/60), m=totalMin%60;
   return h>0 ? (h+'h '+m+'m') : (m+'m');
 }
+
+// ─── DOOR KNOCK SESSIONS (shared, Firestore-backed) ─────────────
+// A "session" is one knocking outing: Start → tap +1 for every door
+// knocked (whether or not it ends in a status tag) → End.
+//
+// This lives in the same Firestore collection ('door_knocks') and goes
+// through the exact same fbSave/trackWrite/deferUntilReady machinery as
+// every other write in the app — deliberately NOT localStorage, since
+// local-only storage is what caused the earlier data-loss problem: a
+// knock count that only lives in one browser's storage disappears the
+// moment that device is lost, its storage is cleared, or the PWA gets
+// reinstalled. Going through the shared path means every knock gets the
+// same offline queueing, retry-on-reconnect, and "N unsynced" badge that
+// already protects door tags — and it means the whole team's sessions
+// show up in Stats/the report on every device, live.
+//
+// Each device still needs its own short-lived local ID, purely so two
+// people knocking at once on two different phones don't stomp on each
+// other's in-progress count in the same shared doc. That ID is not knock
+// data — it's just a label — so nothing is lost if it's ever cleared; a
+// fresh one is generated next time and simply starts a new session doc.
+function _knockDeviceId(){
+  try{
+    let id=localStorage.getItem('skd_device_id');
+    if(!id){ id='dev_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); localStorage.setItem('skd_device_id', id); }
+    return id;
+  }catch(e){ return 'dev_fallback_'+Math.random().toString(36).slice(2,8); }
+}
+const KNOCK_DEVICE_ID=_knockDeviceId();
+
+let knockSession=null;   // {start:ms, knocks:number, tagged:number} — THIS device's in-progress session
+let knockSessions={};    // completed sessions from the WHOLE team, keyed by Firestore doc id — populated by applyDocs()
+let _knockTimerInt=null;
+
+// mm:ss while under an hour, h:mm:ss beyond that — matches a normal
+// stopwatch rather than the "1h 23m" rounding fmtDuration uses elsewhere,
+// since this needs to tick live and read cleanly second-to-second.
+function fmtStopwatch(ms){
+  const totalSec=Math.max(0,Math.floor(ms/1000));
+  const h=Math.floor(totalSec/3600), m=Math.floor((totalSec%3600)/60), s=totalSec%60;
+  const mm=String(m).padStart(2,'0'), ss=String(s).padStart(2,'0');
+  return h>0 ? (h+':'+mm+':'+ss) : (mm+':'+ss);
+}
+function renderKnockUI(){
+  const active=!!knockSession;
+  $('knockFab').style.display=active?'none':'flex';
+  $('knockPill').style.display=active?'flex':'none';
+  if(active){
+    $('kpNum').textContent=knockSession.knocks;
+    $('kpTimer').textContent=fmtStopwatch(Date.now()-knockSession.start);
+  }
+}
+// Every change pushes the full active-session doc to Firestore right
+// away (same as a status tag does) — this is what makes a knock durable
+// the instant it's logged rather than only on "End Session". If Firebase
+// isn't ready yet or the write fails, deferUntilReady/trackWrite queue
+// and retry it exactly like every other write in the app; local state
+// (the pill/timer) is never blocked waiting on the network.
+function _pushActiveSession(){
+  const snapshot={...knockSession, deviceId:KNOCK_DEVICE_ID};
+  deferUntilReady(()=>{
+    if(!fbSaveKnockActive) return;
+    fbSaveKnockActive(snapshot).catch(()=>toast('⚠️ Not saved — check connection and try again'));
+  });
+}
+function startSession(){
+  if(knockSession) return;
+  knockSession={start:Date.now(), knocks:0, tagged:0};
+  renderKnockUI();
+  _pushActiveSession();
+  if(_knockTimerInt) clearInterval(_knockTimerInt);
+  _knockTimerInt=setInterval(renderKnockUI, 1000);
+  toast('🚪 Session started — good luck out there');
+}
+function addKnock(){
+  if(!knockSession) return;
+  knockSession.knocks++;
+  renderKnockUI();
+  _pushActiveSession();
+  // Brief pulse so a quick run of taps gets visible feedback without
+  // stacking up toasts over the map.
+  const el=$('kpCount'); el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+}
+function undoKnock(){
+  if(!knockSession || knockSession.knocks<=0) return;
+  knockSession.knocks--;
+  renderKnockUI();
+  _pushActiveSession();
+}
+// Called from saveEntry() (map sheet) and geocodeAndMark() (Properties
+// list) whenever a door actually gets a status tag while a session is
+// active. Kept separate from the manual tally above — not every knock
+// ends in a tag (no answer, etc.), and not every tag follows a fresh
+// knock (e.g. correcting an earlier one) — this is purely informational,
+// shown alongside the manual count in the session summary/report.
+function noteSessionTag(){
+  if(!knockSession) return;
+  knockSession.tagged=(knockSession.tagged||0)+1;
+  _pushActiveSession();
+}
+function endSession(){
+  if(!knockSession) return;
+  const id='_knocksession_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+  const rec={start:knockSession.start, end:Date.now(), knocks:knockSession.knocks, tagged:knockSession.tagged||0, deviceId:KNOCK_DEVICE_ID};
+  knockSessions[id]=rec; // reflect immediately in this device's own Stats view
+  deferUntilReady(()=>{
+    if(fbSaveKnockSession) fbSaveKnockSession(id,rec).catch(()=>toast('⚠️ Not saved — check connection and try again'));
+  });
+  // Remove the now-finished active doc so it doesn't linger as a phantom
+  // "in-progress" session for other devices.
+  deferUntilReady(()=>{ if(fbDelKnockActive) fbDelKnockActive().catch(()=>{}); });
+  toast('⏹ '+rec.knocks+' knocks in '+fmtDuration(rec.end-rec.start));
+  knockSession=null;
+  if(_knockTimerInt){ clearInterval(_knockTimerInt); _knockTimerInt=null; }
+  renderKnockUI();
+  closeKnockMenu();
+  if($('statsPanel').classList.contains('on')) renderStatsContent();
+}
+function openKnockMenu(){ $('knockMenu').style.display='flex'; }
+function closeKnockMenu(){ $('knockMenu').style.display='none'; }
+
+// Completed sessions from the whole team (plus, if one's running now on
+// THIS device, its in-progress totals) that fall inside the selected
+// Stats period — mirrors getEntriesForPeriod above but for sessions.
+function getKnockStatsForPeriod(period){
+  const {start,end}=periodRange(period);
+  const inRange=d=>{ const dt=new Date(d); return dt>=start && dt<=end; };
+  let knocks=0, durationMs=0, sessions=0;
+  Object.values(knockSessions).forEach(s=>{
+    if(!inRange(s.start)) return;
+    sessions++; knocks+=s.knocks||0; durationMs+=Math.max(0,(s.end||s.start)-s.start);
+  });
+  if(knockSession && inRange(knockSession.start)){
+    sessions++; knocks+=knockSession.knocks||0; durationMs+=Math.max(0,Date.now()-knockSession.start);
+  }
+  const perHour = durationMs>0 ? Math.round(knocks/(durationMs/3600000)) : 0;
+  return {knocks,durationMs,sessions,perHour};
+}
+
+$('knockFab').addEventListener('click', startSession);
+$('kpCount').addEventListener('click', addKnock);
+$('kpTime').addEventListener('click', openKnockMenu);
+$('kmUndo').addEventListener('click', ()=>{ undoKnock(); closeKnockMenu(); });
+$('kmEnd').addEventListener('click', endSession);
+$('kmCancel').addEventListener('click', closeKnockMenu);
+renderKnockUI(); // starts hidden — applyDocs()/initFB() will restore an in-progress session for this device, if Firestore has one
 
 // ─── LEGEND COLLAPSE ────────────────────────────────────────────
 function toggleLegend(){
