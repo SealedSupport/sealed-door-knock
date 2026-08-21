@@ -311,7 +311,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .pw-c{color:var(--sub);font-size:11px}
 .pw-bg{height:5px;background:var(--bg);border-radius:3px;overflow:hidden}
 .pw-fill{height:100%;border-radius:3px;transition:width .5s}
-.st-today-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px}
+.st-today-grid{display:grid;grid-template-columns:1fr;gap:7px;margin-bottom:14px}
 .st-today-card{background:var(--card);border:1.5px solid var(--blue);border-radius:10px;
   padding:12px;text-align:center}
 .st-today-val{font-size:26px;font-weight:800;line-height:1;color:var(--blue)}
@@ -526,6 +526,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
     <button class="sp" data-period="quarter">This Quarter</button>
     <button class="sp" data-period="year">This Year</button>
     <button class="sp" data-period="all">All Time</button>
+    <button class="sp" data-period="logs">📋 DK Logs</button>
   </div>
   <div class="st-sub" id="stDate"></div>
   <div id="stContent"></div>
@@ -1469,9 +1470,15 @@ function switchStatsPeriod(period){
   renderStatsContent();
   // Keep an already-open report preview in sync with the newly-selected
   // period rather than leaving it showing the old window's numbers.
-  if($('stReportBox').classList.contains('on')) $('stReportText').value=buildReportText();
+  // DK Logs isn't a reporting period, so it has no report to sync.
+  if(period!=='logs' && $('stReportBox').classList.contains('on')) $('stReportText').value=buildReportText();
 }
 function renderStatsContent(){
+  // DK Logs is a call-log-style list of every knocking session, not a
+  // stat breakdown for a period — render it separately and bail early.
+  const isLogs=stPeriod==='logs';
+  $('stReportBtn').style.display=isLogs?'none':'';
+  if(isLogs){ $('stReportBox').classList.remove('on'); renderDKLogsContent(); return; }
   const periodEntries=getEntriesForPeriod(stPeriod);
   const periodTotal=periodEntries.length;
   const byS=Object.fromEntries(Object.keys(ST).map(k=>[k,0]));
@@ -1483,7 +1490,6 @@ function renderStatsContent(){
 
   let h='<div class="st-today-grid">';
   h+='<div class="st-today-card"><div class="st-today-val">'+periodTotal+'</div><div class="st-today-lbl">Doors</div></div>';
-  h+='<div class="st-today-card"><div class="st-today-val">'+knockStats.knocks+'</div><div class="st-today-lbl">Knocks</div></div>';
   h+='</div>';
   if(knockStats.sessions>0){
     h+='<div class="st-hdr" style="margin-top:0">Knock Sessions</div>';
@@ -1535,7 +1541,6 @@ function buildReportText(){
   lines.push('DOOR KNOCK REPORT — '+periodLabel(period));
   lines.push('');
   lines.push('Doors: '+total);
-  lines.push('Knocks: '+knockStats.knocks);
   if(knockStats.sessions>0){
     lines.push('Knock sessions: '+knockStats.sessions+' ('+fmtDuration(knockStats.durationMs)+' knocking, '+knockStats.perHour+'/hr)');
   }
@@ -2886,6 +2891,34 @@ function getKnockStatsForPeriod(period){
   }
   const perHour = durationMs>0 ? Math.round(knocks/(durationMs/3600000)) : 0;
   return {knocks,durationMs,sessions,perHour};
+}
+
+// ── DK Logs ──
+// A flat, most-recent-first list of every knocking session (whole team,
+// all time) — like a call log: who/when/how long, not a filtered stat.
+function renderDKLogsContent(){
+  $('stDate').textContent='Every door knock session, most recent first';
+  const rows=Object.values(knockSessions).map(s=>({...s,active:false}));
+  if(knockSession) rows.push({...knockSession,end:Date.now(),deviceId:KNOCK_DEVICE_ID,active:true});
+  rows.sort((a,b)=>b.start-a.start);
+
+  let h='';
+  if(rows.length===0){
+    h='<div class="pw" style="text-align:center;color:var(--sub)">No knocking sessions recorded yet</div>';
+  } else {
+    rows.forEach(s=>{
+      const dt=new Date(s.start);
+      const when=dt.toLocaleDateString('en-AU',{day:'numeric',month:'short'})+', '+dt.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'});
+      const dur=s.active?fmtStopwatch(Date.now()-s.start):fmtDuration((s.end||s.start)-s.start);
+      const who=s.deviceId===KNOCK_DEVICE_ID?'You':'Teammate';
+      const live=s.active?' <span style="color:var(--blue)">● Live</span>':'';
+      h+='<div class="pw">'
+        +'<div class="pw-top"><span>🚪 '+when+live+'</span><span class="pw-c">'+(s.knocks||0)+' knocks</span></div>'
+        +'<div class="pw-top" style="margin-bottom:0"><span class="pw-c">'+who+' · '+dur+'</span><span class="pw-c">'+(s.tagged||0)+' tagged</span></div>'
+        +'</div>';
+    });
+  }
+  $('stContent').innerHTML=h;
 }
 
 $('knockFab').addEventListener('click', startSession);
