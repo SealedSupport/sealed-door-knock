@@ -131,8 +131,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
   display:none;align-items:stretch;background:var(--card);border:1.5px solid var(--border);
   border-radius:99px;box-shadow:0 3px 14px rgba(0,0,0,.18);overflow:hidden}
 .kp-count{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  border:none;background:var(--blue);color:#fff;cursor:pointer;padding:7px 16px;gap:0;min-width:56px}
-.kp-count:active{opacity:.88}
+  border:none;background:var(--blue);color:#fff;cursor:default;padding:7px 16px;gap:0;min-width:56px}
 .kp-num{font-size:18px;font-weight:800;line-height:1}
 .kp-lbl{font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.85;margin-top:1px}
 .kp-count.pulse{animation:kpulse .28s ease}
@@ -467,10 +466,10 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
 <!-- DOOR KNOCK SESSION -->
 <button class="knock-fab" id="knockFab" title="Start a knocking session">🚪</button>
 <div class="knock-pill" id="knockPill">
-  <button class="kp-count" id="kpCount" title="Tap to log a knock">
+  <div class="kp-count" id="kpCount" title="Counted automatically when you tag a door">
     <span class="kp-num" id="kpNum">0</span>
     <span class="kp-lbl">Knocks</span>
-  </button>
+  </div>
   <button class="kp-time" id="kpTime" title="Session options">
     <span id="kpTimer">00:00</span>
     <span class="kp-menu">⋯</span>
@@ -2830,15 +2829,6 @@ function startSession(){
   _knockTimerInt=setInterval(renderKnockUI, 1000);
   toast('🚪 Session started — good luck out there');
 }
-function addKnock(){
-  if(!knockSession) return;
-  knockSession.knocks++;
-  renderKnockUI();
-  _pushActiveSession();
-  // Brief pulse so a quick run of taps gets visible feedback without
-  // stacking up toasts over the map.
-  const el=$('kpCount'); el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
-}
 function undoKnock(){
   if(!knockSession || knockSession.knocks<=0) return;
   knockSession.knocks--;
@@ -2846,15 +2836,18 @@ function undoKnock(){
   _pushActiveSession();
 }
 // Called from saveEntry() (map sheet) and geocodeAndMark() (Properties
-// list) whenever a door actually gets a status tag while a session is
-// active. Kept separate from the manual tally above — not every knock
-// ends in a tag (no answer, etc.), and not every tag follows a fresh
-// knock (e.g. correcting an earlier one) — this is purely informational,
-// shown alongside the manual count in the session summary/report.
+// list) whenever a door gets a status tag while a session is active.
+// This is currently the ONLY way "Knocks" increments — tagging a door
+// auto-counts as a knock. (A manual tap-to-add was tried and removed —
+// every knock here reliably gets a status tag, so it was redundant.)
+// undoKnock() above still exists as a correction tool via the menu.
 function noteSessionTag(){
   if(!knockSession) return;
   knockSession.tagged=(knockSession.tagged||0)+1;
+  knockSession.knocks=(knockSession.knocks||0)+1;
+  renderKnockUI();
   _pushActiveSession();
+  const el=$('kpCount'); if(el){ el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
 }
 function endSession(){
   if(!knockSession) return;
@@ -2896,7 +2889,6 @@ function getKnockStatsForPeriod(period){
 }
 
 $('knockFab').addEventListener('click', startSession);
-$('kpCount').addEventListener('click', addKnock);
 $('kpTime').addEventListener('click', openKnockMenu);
 $('kmUndo').addEventListener('click', ()=>{ undoKnock(); closeKnockMenu(); });
 $('kmEnd').addEventListener('click', endSession);
