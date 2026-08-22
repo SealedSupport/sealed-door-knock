@@ -123,11 +123,13 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 /* Fixed at the body level (not inside .map-wrap) so it stays visible and
    in the same spot across both the Map and Properties tabs. */
 .knock-fab{position:fixed;left:14px;bottom:max(env(safe-area-inset-bottom),14px);z-index:800;
-  width:52px;height:52px;border-radius:50%;background:var(--blue);color:#fff;
-  display:flex;align-items:center;justify-content:center;font-size:22px;
-  box-shadow:0 3px 12px rgba(29,63,187,.4);cursor:pointer;border:none}
+  height:44px;padding:0 18px;border-radius:99px;background:var(--blue);color:#fff;
+  display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:700;
+  box-shadow:0 3px 12px rgba(29,63,187,.4);cursor:pointer;border:none;white-space:nowrap}
 .knock-fab:active{opacity:.85}
-.knock-pill{position:fixed;left:14px;bottom:max(env(safe-area-inset-bottom),14px);z-index:800;
+/* Live pill sits above the End Session button, which takes over the
+   fab's original bottom-left spot once a session is running. */
+.knock-pill{position:fixed;left:14px;bottom:calc(max(env(safe-area-inset-bottom),14px) + 54px);z-index:800;
   display:none;align-items:stretch;background:var(--card);border:1.5px solid var(--border);
   border-radius:99px;box-shadow:0 3px 14px rgba(0,0,0,.18);overflow:hidden}
 .kp-count{display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -140,7 +142,11 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
   color:var(--text);cursor:pointer;padding:7px 14px 7px 12px;font-size:13px;font-weight:700;
   font-variant-numeric:tabular-nums}
 .kp-menu{color:var(--sub);font-size:15px;font-weight:800}
-.knock-menu{display:none;position:fixed;left:14px;bottom:calc(max(env(safe-area-inset-bottom),14px) + 60px);
+.kp-end-btn{display:none;position:fixed;left:14px;bottom:max(env(safe-area-inset-bottom),14px);z-index:800;
+  height:44px;padding:0 18px;border-radius:99px;background:#dc2626;color:#fff;border:none;
+  font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(220,38,38,.4)}
+.kp-end-btn:active{opacity:.85}
+.knock-menu{display:none;position:fixed;left:14px;bottom:calc(max(env(safe-area-inset-bottom),14px) + 108px);
   z-index:801;background:var(--card);border:1px solid var(--border);border-radius:12px;
   box-shadow:0 4px 18px rgba(0,0,0,.2);overflow:hidden;min-width:190px;flex-direction:column}
 .knock-menu button{border:none;background:none;text-align:left;padding:11px 14px;font-size:13px;
@@ -148,6 +154,20 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .knock-menu button:last-child{border-bottom:none;color:var(--sub);font-weight:600}
 .knock-menu button:active{background:var(--bg)}
 .km-end{color:#dc2626!important}
+
+/* ══ SESSION START PROMPT ══ */
+.ks-modal{display:none;position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);
+  z-index:1001;background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:26px 22px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.ks-modal.on{display:block}
+.ks-ico{font-size:34px;margin-bottom:8px}
+.ks-title{font-size:18px;font-weight:800;margin-bottom:6px}
+.ks-sub{font-size:13px;color:var(--sub);margin-bottom:18px;line-height:1.4}
+.ks-start{width:100%;background:var(--blue);color:#fff;border:none;border-radius:11px;
+  padding:13px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px}
+.ks-start:active{opacity:.85}
+.ks-browse{width:100%;background:none;border:none;color:var(--sub);
+  padding:9px;font-size:13px;font-weight:600;cursor:pointer}
 
 /* ══ BROWSER PANEL ══ */
 .sub-tabs{display:flex;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
@@ -464,7 +484,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
 </div>
 
 <!-- DOOR KNOCK SESSION -->
-<button class="knock-fab" id="knockFab" title="Start a knocking session">🚪</button>
+<button class="knock-fab" id="knockFab" title="Start a knocking session">🚪 Start a session</button>
 <div class="knock-pill" id="knockPill">
   <div class="kp-count" id="kpCount" title="Counted automatically when you tag a door">
     <span class="kp-num" id="kpNum">0</span>
@@ -475,10 +495,20 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
     <span class="kp-menu">⋯</span>
   </button>
 </div>
+<button class="kp-end-btn" id="kpEndBtn" title="End this session">⏹ End Session</button>
 <div class="knock-menu" id="knockMenu">
   <button id="kmUndo">↩️ Undo last knock</button>
-  <button id="kmEnd" class="km-end">⏹ End session</button>
   <button id="kmCancel">Cancel</button>
+</div>
+
+<!-- SESSION START PROMPT (shown once on open, unless a session is already active) -->
+<div class="ov" id="ksOv"></div>
+<div class="ks-modal" id="ksModal">
+  <div class="ks-ico">🚪</div>
+  <div class="ks-title">Ready to knock?</div>
+  <div class="ks-sub">Are you starting a knocking session, or just browsing?</div>
+  <button class="ks-start" id="ksStart">🚪 Start a session</button>
+  <button class="ks-browse" id="ksBrowse">Just browsing</button>
 </div>
 
 <!-- BOTTOM SHEET (map tap) -->
@@ -2614,7 +2644,13 @@ async function initFB(){
       // First time entries/ann genuinely reflect the shared server state —
       // safe now to run anything that was waiting to know what's actually
       // on the map (see deferUntilDataReady / saveAnn's removedAk cleanup).
-      if(!window._dataReady){ window._dataReady=true; flushPostSyncQueue(); }
+      if(!window._dataReady){
+        window._dataReady=true; flushPostSyncQueue();
+        // Ask once, right after the app has actually loaded, whether this
+        // is a knocking session or just browsing — but only if a session
+        // isn't already running/restored (nothing to ask then).
+        if(!knockSession) showSessionPrompt();
+      }
     }
     // Catches up any already-tagged pin whose address has a pre-set location
     // (addrLocations) that doesn't match its current coordinates — this
@@ -2807,6 +2843,7 @@ function renderKnockUI(){
   const active=!!knockSession;
   $('knockFab').style.display=active?'none':'flex';
   $('knockPill').style.display=active?'flex':'none';
+  $('kpEndBtn').style.display=active?'block':'none';
   if(active){
     $('kpNum').textContent=knockSession.knocks;
     $('kpTimer').textContent=fmtStopwatch(Date.now()-knockSession.start);
@@ -2894,38 +2931,51 @@ function getKnockStatsForPeriod(period){
 }
 
 // ── DK Logs ──
-// A flat, most-recent-first list of every knocking session (whole team,
-// all time) — like a call log: who/when/how long, not a filtered stat.
+// A flat, most-recent-first list of every tagged door — like a call
+// log: date, address, the tag applied, and when it was logged.
 function renderDKLogsContent(){
-  $('stDate').textContent='Every door knock session, most recent first';
-  const rows=Object.values(knockSessions).map(s=>({...s,active:false}));
-  if(knockSession) rows.push({...knockSession,end:Date.now(),deviceId:KNOCK_DEVICE_ID,active:true});
-  rows.sort((a,b)=>b.start-a.start);
+  const rows=Object.values(entries).filter(e=>e.updated_at).sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at));
+  $('stDate').textContent=rows.length+' door'+(rows.length===1?'':'s')+' tagged, most recent first';
 
   let h='';
   if(rows.length===0){
-    h='<div class="pw" style="text-align:center;color:var(--sub)">No knocking sessions recorded yet</div>';
+    h='<div class="pw" style="text-align:center;color:var(--sub)">No doors tagged yet</div>';
   } else {
-    rows.forEach(s=>{
-      const dt=new Date(s.start);
+    rows.forEach(e=>{
+      const dt=new Date(e.updated_at);
       const when=dt.toLocaleDateString('en-AU',{day:'numeric',month:'short'})+', '+dt.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'});
-      const dur=s.active?fmtStopwatch(Date.now()-s.start):fmtDuration((s.end||s.start)-s.start);
-      const who=s.deviceId===KNOCK_DEVICE_ID?'You':'Teammate';
-      const live=s.active?' <span style="color:var(--blue)">● Live</span>':'';
+      const s=ST[e.status]||{label:e.status||'—',emoji:'📍',color:'var(--sub)'};
+      const addr=e.address||'Unknown address';
       h+='<div class="pw">'
-        +'<div class="pw-top"><span>🚪 '+when+live+'</span><span class="pw-c">'+(s.knocks||0)+' knocks</span></div>'
-        +'<div class="pw-top" style="margin-bottom:0"><span class="pw-c">'+who+' · '+dur+'</span><span class="pw-c">'+(s.tagged||0)+' tagged</span></div>'
+        +'<div class="pw-top"><span>'+addr+'</span></div>'
+        +'<div class="pw-top" style="margin-bottom:0"><span class="pw-c">'+when+'</span><span class="pw-c" style="color:'+s.color+';font-weight:700">'+s.emoji+' '+s.label+'</span></div>'
         +'</div>';
     });
   }
   $('stContent').innerHTML=h;
 }
 
+// ── Session start prompt ──
+// Shown once, right after the app has loaded, so a rep either starts
+// knocking immediately or is pointed at the button for later — instead
+// of silently sitting there until someone notices the door button.
+function showSessionPrompt(){
+  $('ksOv').classList.add('on');
+  $('ksModal').classList.add('on');
+}
+function hideSessionPrompt(){
+  $('ksOv').classList.remove('on');
+  $('ksModal').classList.remove('on');
+}
+
 $('knockFab').addEventListener('click', startSession);
 $('kpTime').addEventListener('click', openKnockMenu);
+$('kpEndBtn').addEventListener('click', endSession);
 $('kmUndo').addEventListener('click', ()=>{ undoKnock(); closeKnockMenu(); });
-$('kmEnd').addEventListener('click', endSession);
 $('kmCancel').addEventListener('click', closeKnockMenu);
+$('ksStart').addEventListener('click', ()=>{ hideSessionPrompt(); startSession(); });
+$('ksBrowse').addEventListener('click', ()=>{ hideSessionPrompt(); toast('👉 Click the Start session button — bottom left — when you\'re ready'); });
+$('ksOv').addEventListener('click', ()=>{ hideSessionPrompt(); toast('👉 Click the Start session button — bottom left — when you\'re ready'); });
 renderKnockUI(); // starts hidden — applyDocs()/initFB() will restore an in-progress session for this device, if Firestore has one
 
 // ─── LEGEND COLLAPSE ────────────────────────────────────────────
