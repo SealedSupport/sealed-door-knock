@@ -70,6 +70,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 /* ══ MAP PANEL ══ */
 .secstrip{background:var(--card);border-bottom:1px solid var(--border);
   padding:6px 12px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.secstrip.hidden{display:none}
 .secstrip::-webkit-scrollbar{display:none}
 .sec{padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;
   border:1.5px solid var(--border);background:transparent;color:var(--sub);cursor:pointer;white-space:nowrap}
@@ -125,7 +126,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .knock-fab{position:fixed;left:14px;bottom:max(env(safe-area-inset-bottom),14px);z-index:800;
   height:44px;padding:0 18px;border-radius:99px;background:var(--blue);color:#fff;
   display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:700;
-  box-shadow:0 3px 12px rgba(29,63,187,.4);cursor:pointer;border:none;white-space:nowrap}
+  box-shadow:0 3px 12px rgba(29,63,187,.4);cursor:pointer;border:none;white-space:nowrap;touch-action:none}
 .knock-fab:active{opacity:.85}
 /* Live pill sits above the End Session button, which takes over the
    fab's original bottom-left spot once a session is running. */
@@ -133,7 +134,8 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
   display:none;align-items:stretch;background:var(--card);border:1.5px solid var(--border);
   border-radius:99px;box-shadow:0 3px 14px rgba(0,0,0,.18);overflow:hidden}
 .kp-count{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  border:none;background:var(--blue);color:#fff;cursor:default;padding:7px 16px;gap:0;min-width:56px}
+  border:none;background:var(--blue);color:#fff;cursor:grab;padding:7px 16px;gap:0;min-width:56px;touch-action:none}
+.kp-count:active{cursor:grabbing}
 .kp-num{font-size:18px;font-weight:800;line-height:1}
 .kp-lbl{font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.85;margin-top:1px}
 .kp-count.pulse{animation:kpulse .28s ease}
@@ -144,7 +146,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .kp-menu{color:var(--sub);font-size:15px;font-weight:800}
 .kp-end-btn{display:none;position:fixed;left:14px;bottom:max(env(safe-area-inset-bottom),14px);z-index:800;
   height:44px;padding:0 18px;border-radius:99px;background:#dc2626;color:#fff;border:none;
-  font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(220,38,38,.4)}
+  font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(220,38,38,.4);touch-action:none}
 .kp-end-btn:active{opacity:.85}
 .knock-menu{display:none;position:fixed;left:14px;bottom:calc(max(env(safe-area-inset-bottom),14px) + 108px);
   z-index:801;background:var(--card);border:1px solid var(--border);border-radius:12px;
@@ -154,6 +156,17 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .knock-menu button:last-child{border-bottom:none;color:var(--sub);font-weight:600}
 .knock-menu button:active{background:var(--bg)}
 .km-end{color:#dc2626!important}
+
+/* ══ BAR OVERFLOW MENU (export / clear sections) ══ */
+.bar-menu{display:none;position:absolute;top:44px;right:10px;z-index:900;
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 4px 18px rgba(0,0,0,.2);overflow:hidden;min-width:180px;flex-direction:column}
+.bar-menu.on{display:flex}
+.bar-menu button{border:none;background:none;text-align:left;padding:11px 14px;font-size:13px;
+  font-weight:600;color:var(--text);cursor:pointer;border-bottom:1px solid var(--border)}
+.bar-menu button:last-child{border-bottom:none}
+.bar-menu button:active{background:var(--bg)}
+.bm-danger{color:#dc2626!important}
 
 /* ══ SESSION START PROMPT ══ */
 .ks-modal{display:none;position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);
@@ -390,9 +403,18 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
   <div class="sync" id="syncDot"></div>
   <button class="bar-icon" id="doneBtn" title="Check all changes saved before closing" style="background:#1d3fbb;border-color:#1d3fbb;color:#fff;width:auto;padding:0 10px;font-size:11px;font-weight:800;letter-spacing:.03em">SAVE</button>
   <button class="bar-icon" id="statsBtn">📊</button>
-  <button class="bar-icon" id="exportBtn">⬇️</button>
-  <button class="bar-icon" id="clearSecBtn">🗑️</button>
+  <button class="bar-icon" id="exportBtn" style="display:none">⬇️</button>
+  <button class="bar-icon" id="clearSecBtn" style="display:none">🗑️</button>
   <button class="bar-icon" id="themeBtn" title="Toggle light/dark">🌙</button>
+  <div style="position:relative">
+    <button class="bar-icon" id="barMoreBtn" title="More">⋮</button>
+    <div class="bar-menu" id="barMenu">
+      <button id="bmExport">⬇️ Export CSV</button>
+      <button id="bmDraw">✏️ Draw Section</button>
+      <button id="bmToggleSecbar">🧭 Hide Section Bar</button>
+      <button class="bm-danger" id="bmClearSec">🗑️ Clear Sections</button>
+    </div>
+  </div>
 </div>
 
 <!-- OFFLINE WARNING -->
@@ -912,7 +934,6 @@ function renderSecPills(){
      +'<button data-sec="'+dn+'" onclick="window.renameSection(this.dataset.sec)" style="padding:5px 7px;border-radius:0;font-size:11px;border:1.5px solid '+col+';border-right:none;border-left:none;background:'+bg+';color:'+fg+';cursor:pointer;flex-shrink:0">✏️</button>'
      +'<button data-sec="'+dn+'" onclick="window.deleteSection(this.dataset.sec)" style="padding:5px 7px;border-radius:0 99px 99px 0;font-size:11px;border:1.5px solid '+col+';background:'+bg+';color:'+(isActive?'#ffcccc':'#dc2626')+';cursor:pointer;flex-shrink:0;margin-right:4px">🗑</button>';
   });
-  h+='<button class="sec" style="border-color:#1d3fbb;color:#1d3fbb" onclick="window.startDraw()">✏️ Draw</button>';
   row.innerHTML=h;
 }
 
@@ -1849,8 +1870,24 @@ function propCard(p){
 
   const onmap=ms?'<span style="font-size:10px;font-weight:700;background:'+ms.color+';color:#fff;border-radius:6px;padding:1px 6px;margin-left:5px">'+ms.emoji+'</span>':'';
   const tagBadge=ti?'<span style="font-size:10px;font-weight:700;background:'+ti.c+';color:#fff;border-radius:99px;padding:2px 8px;margin-left:6px;white-space:nowrap">'+esc(ti.l)+'</span>':'';
+  // Auto-detected from the RP Data record's owner type (Rented) — a
+  // read-only heads-up in the list only. It never touches ann/entries,
+  // so it never puts a dot on the map; only the manual "Tenanted" tag
+  // button (below) does that. Suppressed when already manually tagged
+  // Tenanted to avoid showing the same thing twice.
+  const autoTenanted = !!(p.ownerType && p.ownerType.toLowerCase().includes('rent'));
+  const autoTenantBadge = (autoTenanted && no.tag!=='tenanted')
+    ? '<span style="font-size:10px;font-weight:700;background:transparent;border:1.5px solid #ea580c;color:#ea580c;border-radius:99px;padding:1px 7px;margin-left:6px;white-space:nowrap">🏠 Tenanted</span>'
+    : '';
   // The note, if there is one, is always shown here — no tap needed to see it.
   const noteLine=no.note?'<div style="font-size:12px;color:var(--sub);font-style:italic;margin-top:4px">📝 '+esc(no.note)+'</div>':'';
+  // Last sold price/date straight from the RP Data record. Skip blank
+  // markers ("-") and unsold/no-price records ("$0") so the line only
+  // appears when there's something real to show.
+  const validPrice = p.salePrice && p.salePrice!=='-' && p.salePrice!=='$0' ? p.salePrice : null;
+  const validDate = p.saleDate && p.saleDate!=='-' ? p.saleDate : null;
+  const saleBits = [validPrice, validDate].filter(Boolean);
+  const saleLine = saleBits.length ? '<div style="font-size:11px;color:var(--sub);margin-top:2px">💰 Last sold: '+esc(saleBits.join(' · '))+'</div>' : '';
   const hint=(!ti && !no.note)?'<div class="pcard-tap-hint">Tap to tag &amp; add note</div>':'';
   const locBtn='<button data-action="setunitloc" data-addr="'+encodeAk(p.address)+'" data-suburb="'+encodeAk(p.suburb)+'" '+
     'style="font-size:11px;font-weight:700;border:1px solid '+(_hasLoc?'var(--green)':'var(--border)')+';'+
@@ -1861,10 +1898,10 @@ function propCard(p){
     '<div class="pcard-tap" data-action="toggle" data-ak="'+ea+'">'+
       '<div class="pcard-body">'+
         '<div class="pcard-head">'+
-          '<div class="pcard-addr">'+esc(tc(p.address))+onmap+tagBadge+(_hasLoc&&!ms?'<span style="font-size:10px;font-weight:700;color:var(--green);margin-left:5px">📍</span>':'')+'</div>'+
+          '<div class="pcard-addr">'+esc(tc(p.address))+onmap+tagBadge+autoTenantBadge+(_hasLoc&&!ms?'<span style="font-size:10px;font-weight:700;color:var(--green);margin-left:5px">📍</span>':'')+'</div>'+
           '<div class="pcard-meta">'+esc(tc(p.suburb))+' · '+esc(p.section)+'</div>'+
         '</div>'+
-        noteLine+hint+
+        saleLine+noteLine+hint+
       '</div>'+
     '</div>'+
     '<div class="pcard-expand'+(expanded?' open':'')+'">'+
@@ -2363,7 +2400,7 @@ function runSearch(){
     const a=ak(p),no=ann[a]||{};
     const ti=no.tag?TAGS.find(t=>t.k===no.tag):null;
     const me=findEntry(p.address),ms=me?ST[me.status]:null;
-    const meta=[p.bed&&p.bed!=='-'?p.bed+'🛏':null,p.type?p.type.split(':')[0]:null,p.ownerType&&p.ownerType!=='-'?p.ownerType:null].filter(Boolean).join(' · ');
+    const meta=[p.bed&&p.bed!=='-'?p.bed+'🛏':null,p.type?p.type.split(':')[0]:null,p.ownerType&&p.ownerType!=='-'?p.ownerType:null,(p.salePrice&&p.salePrice!=='-'&&p.salePrice!=='$0')?p.salePrice:null].filter(Boolean).join(' · ');
     const check=ti?'<span style="width:16px;height:16px;border-radius:50%;background:'+ti.c+';color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">✓</span>':'';
     return '<div class="sri" data-action="drill" data-suburb="'+esc(p.suburb)+'" data-section="'+esc(p.section)+'" data-street="'+esc(p.street)+'">'+
       '<div class="sri-l"><div class="sri-a">'+hl(tc(p.address))+check+'</div><div class="sri-m">'+(esc(meta)||esc(tc(p.suburb)))+'</div></div>'+
@@ -2421,6 +2458,38 @@ document.querySelectorAll('[data-sf]').forEach(b=>b.addEventListener('click',()=
 document.querySelectorAll('[data-st]').forEach(b=>b.addEventListener('click',()=>pickStatus(b.dataset.st)));
 
 $('statsBtn').addEventListener('click',openStats);
+// ─── BAR OVERFLOW MENU ──────────────────────────────────────────
+// Export and Clear-Sections used to be their own top-bar icons; they're
+// now tucked behind this ⋮ so the bar has fewer buttons crowding it.
+// Same underlying actions (exportUpdatesCSV / clearSections), just
+// triggered from the menu instead of a dedicated icon.
+(function initBarMenu(){
+  const menu=$('barMenu');
+  function close(){ menu.classList.remove('on'); }
+  $('barMoreBtn').addEventListener('click', e=>{ e.stopPropagation(); menu.classList.toggle('on'); });
+  $('bmExport').addEventListener('click', ()=>{ close(); exportUpdatesCSV(); });
+  $('bmDraw').addEventListener('click', ()=>{ close(); startDraw(); });
+  $('bmClearSec').addEventListener('click', ()=>{ close(); clearSections(); });
+  document.addEventListener('click', e=>{ if(!menu.contains(e.target) && e.target.id!=='barMoreBtn') close(); });
+
+  // Section bar (the "All / 1 / 2 / FA / Draw" strip) visibility — a
+  // per-device setting saved to localStorage, same pattern as the
+  // legend's collapsed state.
+  const secBar=$('secRow'), secToggleBtn=$('bmToggleSecbar');
+  function applySecbarPref(hidden){
+    secBar.classList.toggle('hidden',hidden);
+    secToggleBtn.textContent = hidden ? '🧭 Show Section Bar' : '🧭 Hide Section Bar';
+  }
+  let secHidden=false;
+  try{ secHidden = localStorage.getItem('skd_secbar_hidden')==='1'; }catch(e){}
+  applySecbarPref(secHidden);
+  secToggleBtn.addEventListener('click', ()=>{
+    secHidden=!secHidden;
+    applySecbarPref(secHidden);
+    try{ localStorage.setItem('skd_secbar_hidden', secHidden?'1':'0'); }catch(e){}
+    close();
+  });
+})();
 $('stClose').addEventListener('click',()=>$('statsPanel').classList.remove('on'));
 $('stReportBtn').addEventListener('click',toggleReportBox);
 $('stReportCopy').addEventListener('click',copyReportText);
@@ -2848,6 +2917,7 @@ function renderKnockUI(){
     $('kpNum').textContent=knockSession.knocks;
     $('kpTimer').textContent=fmtStopwatch(Date.now()-knockSession.start);
   }
+  if(window.reapplyKnockDrag) window.reapplyKnockDrag();
 }
 // Every change pushes the full active-session doc to Firestore right
 // away (same as a status tag does) — this is what makes a knock durable
@@ -2976,6 +3046,80 @@ $('kmCancel').addEventListener('click', closeKnockMenu);
 $('ksStart').addEventListener('click', ()=>{ hideSessionPrompt(); startSession(); });
 $('ksBrowse').addEventListener('click', ()=>{ hideSessionPrompt(); toast('👉 Click the Start session button — bottom left — when you\'re ready'); });
 $('ksOv').addEventListener('click', ()=>{ hideSessionPrompt(); toast('👉 Click the Start session button — bottom left — when you\'re ready'); });
+// ─── DRAGGABLE SESSION CONTROLS ─────────────────────────────────
+// The Start-session FAB / live pill / End Session button are fixed to
+// one spot, which can land on top of another control on some screens.
+// This lets a rep drag the whole group anywhere on screen; a plain tap
+// still starts/ends the session as before — only a real drag (finger
+// moves >8px) is treated as a move and swallows that tap. Position is
+// remembered (per device) across reloads and re-clamped on rotation or
+// whenever renderKnockUI() swaps the FAB for the pill+End button.
+(function initKnockDrag(){
+  let pos={x:0,y:0};
+  try{ const saved=JSON.parse(localStorage.getItem('skd_knock_pos')||'null'); if(saved && typeof saved.x==='number') pos=saved; }catch(e){}
+
+  function visibleAnchor(){
+    const fab=$('knockFab'), endBtn=$('kpEndBtn');
+    if(fab && fab.style.display!=='none') return fab;
+    if(endBtn && endBtn.style.display!=='none') return endBtn;
+    return fab;
+  }
+  function clamp(){
+    const ref=visibleAnchor();
+    if(!ref) return;
+    const prevT=ref.style.transform;
+    ref.style.transform='translate3d(0,0,0)';
+    const r=ref.getBoundingClientRect();
+    ref.style.transform=prevT;
+    const margin=6;
+    const minX=margin-r.left;
+    const maxX=window.innerWidth-margin-r.right;
+    const minY=margin-r.top;
+    const maxY=0; // never push it lower than its default resting spot
+    pos.x=Math.min(Math.max(pos.x,minX),maxX);
+    pos.y=Math.min(Math.max(pos.y,minY),maxY);
+  }
+  function apply(){
+    const t='translate3d('+pos.x+'px,'+pos.y+'px,0)';
+    ['knockFab','knockPill','kpEndBtn'].forEach(id=>{ const el=$(id); if(el) el.style.transform=t; });
+  }
+  function save(){ try{ localStorage.setItem('skd_knock_pos', JSON.stringify(pos)); }catch(e){} }
+
+  function bindDrag(el){
+    if(!el) return;
+    let sx=0, sy=0, ox=0, oy=0, dragging=false, moved=false;
+    el.addEventListener('pointerdown', e=>{
+      dragging=true; moved=false;
+      sx=e.clientX; sy=e.clientY; ox=pos.x; oy=pos.y;
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    el.addEventListener('pointermove', e=>{
+      if(!dragging) return;
+      const dx=e.clientX-sx, dy=e.clientY-sy;
+      if(!moved && Math.hypot(dx,dy)>8) moved=true;
+      if(moved){ pos.x=ox+dx; pos.y=oy+dy; clamp(); apply(); }
+    });
+    const end=()=>{
+      if(!dragging) return;
+      dragging=false;
+      if(moved) save();
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('click', e=>{
+      if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; }
+    }, true);
+  }
+
+  bindDrag($('knockFab'));
+  bindDrag($('kpEndBtn'));
+  bindDrag($('kpCount')); // drag handle on the live pill (it has no tap action of its own)
+
+  window.reapplyKnockDrag=function(){ clamp(); apply(); };
+  window.addEventListener('resize', window.reapplyKnockDrag);
+  clamp(); apply();
+})();
+
 renderKnockUI(); // starts hidden — applyDocs()/initFB() will restore an in-progress session for this device, if Firestore has one
 
 // ─── LEGEND COLLAPSE ────────────────────────────────────────────
