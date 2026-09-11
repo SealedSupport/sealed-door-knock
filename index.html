@@ -3156,16 +3156,21 @@ $('ksOv').addEventListener('click', ()=>{ hideSessionPrompt(); toast('👉 Click
 
   function bindDrag(el){
     if(!el) return;
-    let sx=0, sy=0, ox=0, oy=0, dragging=false, moved=false;
+    let sx=0, sy=0, ox=0, oy=0, dragging=false, moved=false, downAt=0;
     el.addEventListener('pointerdown', e=>{
-      dragging=true; moved=false;
+      dragging=true; moved=false; downAt=Date.now();
       sx=e.clientX; sy=e.clientY; ox=pos.x; oy=pos.y;
       try{ el.setPointerCapture(e.pointerId); }catch(err){}
     });
     el.addEventListener('pointermove', e=>{
       if(!dragging) return;
       const dx=e.clientX-sx, dy=e.clientY-sy;
-      if(!moved && Math.hypot(dx,dy)>8) moved=true;
+      // A real drag-to-reposition is a deliberate, sustained motion — a tap's
+      // sensor jitter is instant and small. Requiring BOTH a larger travel
+      // distance AND that some time has actually passed since touch-down
+      // stops that jitter from being mistaken for a drag, which used to eat
+      // the first tap on End Session and force a second one.
+      if(!moved && Math.hypot(dx,dy)>16 && (Date.now()-downAt)>80) moved=true;
       if(moved){ pos.x=ox+dx; pos.y=oy+dy; clamp(); apply(); }
     });
     const end=()=>{
