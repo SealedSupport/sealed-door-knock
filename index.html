@@ -2416,6 +2416,17 @@ function drillTo(suburb,section,street){
 // ═══════════════════════════════════════════════════════════
 // EVENT DELEGATION
 // ═══════════════════════════════════════════════════════════
+// Recent-tap tracking: a Firestore snapshot arriving right as the rep taps
+// a tag button (very common right after switching apps — see the
+// visibilitychange handler near the bottom) used to rebuild the whole
+// property list mid-tap via renderBrowser()'s body.innerHTML swap. That
+// destroys the exact button the finger is on, so the tap silently does
+// nothing — read as "the tags button isn't working" / the app "freezing".
+// applyDocs() checks this timestamp and defers its rebuild instead of
+// racing it.
+let _lastTapAt=0;
+document.addEventListener('pointerdown',e=>{ if(e.target.closest('[data-action]')) _lastTapAt=Date.now(); },true);
+
 document.addEventListener('click',function(e){
   const t=e.target.closest('[data-action]');
   if(!t)return;
@@ -2708,7 +2719,19 @@ async function initFB(){
         // the next update (or hitting Save) will pick up the latest state.
         const active=document.activeElement;
         const isTypingNote=active && active.classList && active.classList.contains('note-in');
-        if(!isTypingNote) renderBrowser();
+        if(!isTypingNote){
+          const sinceTap=Date.now()-_lastTapAt;
+          if(sinceTap<600){
+            // A tap just landed (or is mid-flight) — rebuilding body.innerHTML
+            // now would swap out the exact button under the rep's finger.
+            // Push the rebuild to just after the tap window closes instead
+            // of dropping it; a further tap keeps re-arming this timer.
+            clearTimeout(window._pendingBrowserRender);
+            window._pendingBrowserRender=setTimeout(renderBrowser,600-sinceTap+50);
+          } else {
+            renderBrowser();
+          }
+        }
       }
       // First time entries/ann genuinely reflect the shared server state —
       // safe now to run anything that was waiting to know what's actually
@@ -3167,19 +3190,47 @@ window.addEventListener('beforeunload', function(e){
 loadAnn();
 initMap();
 [60,250,700,1600].forEach(ms=>setTimeout(()=>map&&map.invalidateSize(true),ms));
+// Timestamp of when the app was last hidden, so the visible-again handler
+// below can tell a genuine backgrounding (rep switched to Photos/Maps for a
+// minute) apart from a split-second flicker (e.g. tapping a system
+// permission dialog), which doesn't need — and shouldn't trigger — a
+// Firestore reconnect + full list rebuild.
+let _hiddenAt=null;
 document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden){
-    if(map) map.invalidateSize(true);
-    // iOS PWA: Firebase can go stale after app is backgrounded.
-    // Re-enable network to force snapshot refresh.
-    if(window._fbDb){
-      import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js').then(({enableNetwork})=>{
-        enableNetwork(window._fbDb).catch(()=>{});
-      });
-    }
-    updateOnlineStatus();
+  if(document.hidden){
+    _hiddenAt=Date.now();
+    return;
   }
+  const hiddenMs=_hiddenAt?Date.now()-_hiddenAt:0;
+  _hiddenAt=null;
+  if(map) map.invalidateSize(true);
+  // iOS PWA: Firebase can go stale after app is backgrounded.
+  // Re-enable network to force snapshot refresh — but only if we were
+  // actually away long enough for that to matter. Doing this on every
+  // brief switch (glancing at a text, a system dialog) forces a fresh
+  // snapshot + full property-list rebuild each time, which is the main
+  // source of the app feeling like it "freezes" when switching apps.
+  if(hiddenMs>3000 && window._fbDb){
+    import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js').then(({enableNetwork})=>{
+      enableNetwork(window._fbDb).catch(()=>{});
+    });
+  }
+  updateOnlineStatus();
+  maybeNudgeActiveSession();
 });
+// Forgetting to press "End Session" after switching apps mid-knock is a
+// known habit — nudge on return if one's been running a long while,
+// throttled so it doesn't nag on every single app switch.
+let _lastSessionNudgeAt=0;
+function maybeNudgeActiveSession(){
+  if(!knockSession) return;
+  const elapsed=Date.now()-knockSession.start;
+  const TWO_HOURS=2*60*60*1000, THIRTY_MIN=30*60*1000;
+  if(elapsed>TWO_HOURS && Date.now()-_lastSessionNudgeAt>THIRTY_MIN){
+    _lastSessionNudgeAt=Date.now();
+    toast('⏱ Session still running ('+fmtDuration(elapsed)+') — tap End Session if you\'re done');
+  }
+}
 updateOnlineStatus();
 initFB();
 renderBrowser();
