@@ -411,6 +411,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
     <div class="bar-menu" id="barMenu">
       <button id="bmExport">⬇️ Export CSV</button>
       <button id="bmDraw">✏️ Draw Section</button>
+      <button id="bmManageSecs">📝 Manage Sections</button>
       <button id="bmToggleSecbar">🧭 Hide Section Bar</button>
       <button class="bm-danger" id="bmClearSec">🗑️ Clear Sections</button>
     </div>
@@ -441,7 +442,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
       <div class="leg"><div class="ldot" style="background:#4ade80"></div>Drop/Email CMA</div>
       <div class="leg"><div class="ldot" style="background:var(--slate)"></div>No Access</div>
       <div class="leg"><div class="ldot" style="background:var(--orange)"></div>Tenanted/Not Int.</div>
-      <div class="leg"><div class="ldot" style="background:var(--navy)"></div>Chase</div>
+      <div class="leg"><div class="ldot" style="background:var(--navy)"></div>New Contact</div>
       <div class="leg"><div class="ldot" style="background:var(--gray)"></div>Not Avail</div>
       <div class="leg"><div class="ldot" style="background:var(--purple)"></div>Recent Sale</div>
     </div>
@@ -554,7 +555,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
       <button class="sh-btn" id="btn-na" data-st="no_access"><span class="e">🔒</span>No Access</button>
       <button class="sh-btn" id="btn-t"  data-st="tenanted"><span class="e">🏠</span>Tenanted</button>
       <button class="sh-btn" id="btn-ni" data-st="not_interested"><span class="e">✋</span>Not Int.</button>
-      <button class="sh-btn" id="btn-ch" data-st="chase"><span class="e">📞</span>Chase</button>
+      <button class="sh-btn" id="btn-ch" data-st="chase"><span class="e">📞</span>New Contact</button>
       <button class="sh-btn" id="btn-nv" data-st="not_avail"><span class="e">🚪</span>Not Avail</button>
       <button class="sh-btn" id="btn-rs" data-st="recent_sale"><span class="e">🏷</span>Rec. Sale</button>
     </div>
@@ -609,6 +610,18 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
   </div>
 </div>
 
+<!-- MANAGE SECTIONS MODAL -->
+<div class="ov" id="msOv"></div>
+<div class="sheet" id="msSheet" style="padding-bottom:max(env(safe-area-inset-bottom),24px);max-height:70vh;overflow-y:auto">
+  <div class="sh-handle"></div>
+  <div style="padding:14px 18px 0">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">Manage Sections</div>
+    <div id="msList"></div>
+    <button id="msCloseBtn" style="width:100%;background:none;border:none;color:var(--sub);font-size:13px;font-weight:600;cursor:pointer;padding:8px;margin-top:6px">Close</button>
+  </div>
+</div>
+
+
 <div class="dbar" id="dBar">
   <input id="dNameIn" type="text" placeholder="Section name…" style="flex:1;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;font-family:var(--f);background:var(--bg);color:var(--text);outline:none;min-width:0">
   <button type="button" class="dbt" id="dModeToggle" style="background:var(--bg);color:var(--blue);border:1.5px solid var(--blue);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700">🗺 Area</button>
@@ -626,7 +639,7 @@ const ST = {
   no_access:        {label:'No Access',        color:'#4b5563', emoji:'🔒'},
   tenanted:         {label:'Tenanted',         color:'#ea580c', emoji:'🏠'},
   not_interested:   {label:'Not Interested',   color:'#ea580c', emoji:'✋'},
-  chase:            {label:'Chase',            color:'#1e6fbb', emoji:'📞'},
+  chase:            {label:'New Contact',      color:'#1e6fbb', emoji:'📞'},
   not_avail:        {label:'Not Avail',        color:'#9ca3af', emoji:'🚪'},
   recent_sale:      {label:'Recent Sale',      color:'#7c3aed', emoji:'🏷'},
 };
@@ -636,7 +649,7 @@ const TAGS = [
   {k:'no_access',        l:'No Access',  c:'#4b5563'},
   {k:'tenanted',         l:'Tenanted',   c:'#ea580c'},
   {k:'not_interested',   l:'Not Int.',   c:'#ea580c'},
-  {k:'chase',            l:'Chase',      c:'#1e6fbb'},
+  {k:'chase',            l:'New Contact', c:'#1e6fbb'},
   {k:'not_avail',        l:'Not Avail',  c:'#9ca3af'},
   {k:'recent_sale',      l:'Rec.Sale',   c:'#7c3aed'},
 ];
@@ -930,9 +943,7 @@ function renderSecPills(){
     const col=isActive?'#1d3fbb':'var(--border)';
     const fg=isActive?'#fff':'var(--sub)';
     const bg=isActive?'#1d3fbb':'transparent';
-    h+='<button data-sec="'+dn+'" onclick="window.setSec(this.dataset.sec)" style="padding:5px 11px;border-radius:99px 0 0 99px;font-size:11px;font-weight:700;border:1.5px solid '+col+';border-right:none;background:'+bg+';color:'+fg+';cursor:pointer;white-space:nowrap;flex-shrink:0">'+en+'</button>'
-     +'<button data-sec="'+dn+'" onclick="window.renameSection(this.dataset.sec)" style="padding:5px 7px;border-radius:0;font-size:11px;border:1.5px solid '+col+';border-right:none;border-left:none;background:'+bg+';color:'+fg+';cursor:pointer;flex-shrink:0">✏️</button>'
-     +'<button data-sec="'+dn+'" onclick="window.deleteSection(this.dataset.sec)" style="padding:5px 7px;border-radius:0 99px 99px 0;font-size:11px;border:1.5px solid '+col+';background:'+bg+';color:'+(isActive?'#ffcccc':'#dc2626')+';cursor:pointer;flex-shrink:0;margin-right:4px">🗑</button>';
+    h+='<button data-sec="'+dn+'" onclick="window.setSec(this.dataset.sec)" style="padding:5px 11px;border-radius:99px;font-size:11px;font-weight:700;border:1.5px solid '+col+';background:'+bg+';color:'+fg+';cursor:pointer;white-space:nowrap;flex-shrink:0;margin-right:4px">'+en+'</button>';
   });
   row.innerHTML=h;
 }
@@ -1099,6 +1110,38 @@ function deleteSection(name){
   toast('Section deleted');
 }
 function clearSections(){if(!confirm('Delete all sections for '+sub+'?'))return;saveSecs(sub,{});secActive=null;renderSecs();renderSecPills();toast('Sections cleared')}
+
+// ─── MANAGE SECTIONS (moved here from the per-pill ✏️/🗑 buttons, which
+// cluttered the section strip — rename/delete now live in one list under
+// the ⋮ menu instead) ────────────────────────────────────────────
+function renderManageSections(){
+  const secs=loadSecs(sub);
+  const names=Object.keys(secs);
+  const list=$('msList');
+  if(!names.length){
+    list.innerHTML='<div style="padding:16px 0;text-align:center;color:var(--sub);font-size:13px">No sections drawn yet</div>';
+    return;
+  }
+  list.innerHTML=names.map(n=>{
+    const en=esc(n);
+    return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)">'+
+      '<div style="flex:1;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+en+'</div>'+
+      '<button data-sec="'+en+'" class="ms-rename" style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer">✏️</button>'+
+      '<button data-sec="'+en+'" class="ms-delete" style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;color:#dc2626;cursor:pointer">🗑</button>'+
+    '</div>';
+  }).join('');
+  list.querySelectorAll('.ms-rename').forEach(b=>b.addEventListener('click',()=>{ closeManageSections(); renameSection(b.dataset.sec); }));
+  list.querySelectorAll('.ms-delete').forEach(b=>b.addEventListener('click',()=>{ deleteSection(b.dataset.sec); renderManageSections(); }));
+}
+function openManageSections(){
+  renderManageSections();
+  $('msOv').classList.add('on');
+  $('msSheet').classList.add('on');
+}
+function closeManageSections(){
+  $('msOv').classList.remove('on');
+  $('msSheet').classList.remove('on');
+}
 
 // ─── ADDRESS AUTOCOMPLETE (map-tap sheet) ────────────────────
 // Matches free-typed/tapped addresses in the tag sheet against real
@@ -2480,6 +2523,7 @@ $('statsBtn').addEventListener('click',openStats);
   $('barMoreBtn').addEventListener('click', e=>{ e.stopPropagation(); menu.classList.toggle('on'); });
   $('bmExport').addEventListener('click', ()=>{ close(); exportUpdatesCSV(); });
   $('bmDraw').addEventListener('click', ()=>{ close(); startDraw(); });
+  $('bmManageSecs').addEventListener('click', ()=>{ close(); openManageSections(); });
   $('bmClearSec').addEventListener('click', ()=>{ close(); clearSections(); });
   document.addEventListener('click', e=>{ if(!menu.contains(e.target) && e.target.id!=='barMoreBtn') close(); });
 
@@ -2549,7 +2593,7 @@ $('bBody').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList
 
 // ─── MONDAY FORM ────────────────────────────────────────────
 const MF_URL = 'https://forms.monday.com/forms/3251387f6ae313260ae2fbc2197a5962?r=apse2';
-const MF_STATUSES = new Set(['map_lap','drop_email']);
+const MF_STATUSES = new Set(['map_lap','drop_email','chase']);
 
 function openMondayForm(address, suburb, status){
   if(!MF_STATUSES.has(status)) return;
@@ -2832,6 +2876,8 @@ async function initFB(){
 // Monday form close listeners
 $('mfOv').addEventListener('click', closeMondayForm);
 $('mfCloseBtn').addEventListener('click', closeMondayForm);
+$('msOv').addEventListener('click', closeManageSections);
+$('msCloseBtn').addEventListener('click', closeManageSections);
 
 // ─── EXPOSE GLOBALS FOR INLINE ONCLICK ──────────────────────
 window.setSec=setSec;
