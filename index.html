@@ -764,6 +764,12 @@ const tc=s=>s?s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):'';
 const mkKey=(la,ln)=>la.toFixed(6)+'_'+ln.toFixed(6);
 const ak=p=>(p.suburb+'_'+p.address).toUpperCase();
 const safeId=a=>a.replace(/[^a-zA-Z0-9_\-]/g,'_');
+// Best-effort street name for an address we don't have an RP Data row for —
+// strips a leading unit prefix ("2/") and the street number ("23", "9A"),
+// leaving the street name so the new row still groups sensibly under
+// Streets in the Properties browser. Not as reliable as real RP Data, but
+// good enough for a manually-created row.
+const guessStreet=addr=>(addr||'').toUpperCase().trim().replace(/^(?:[A-Z0-9][A-Z0-9\-]*\/)?\d+[A-Z]?[\-]?\d*[A-Z]?\s+/,'').trim();
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)}
 function sdot(s){const d=$('syncDot');d.className='sync'+(s==='off'?' off':s==='syn'?' syn':'')}
@@ -797,9 +803,30 @@ function findProperty(address, suburb){
 // and refreshes that property's card if it's currently on screen. This is
 // what keeps tagging in sync in both directions between map and list —
 // geocodeAndMark() already does the reverse (list tag → map pin).
-function syncAnnFromMap(address, suburb, tag, note){
-  const p=findProperty(address, suburb);
-  if(!p) return;
+function syncAnnFromMap(address, suburb, tag, note, section){
+  let p=findProperty(address, suburb);
+  if(!p){
+    // No matching row in PROPERTY_DATA — this address isn't in the RP Data
+    // export (new build, off-market, typo'd on the map, etc). Rather than
+    // silently dropping the tag, create a minimal row for it so it starts
+    // showing up in the Properties list too. Only do this when an actual
+    // tag is being set (not when clearing/removing a status) — no point
+    // creating an empty untagged row.
+    if(!tag) return;
+    p={
+      address:(address||'').toUpperCase().trim(),
+      suburb:(suburb||'').toUpperCase().trim(),
+      postcode:'',
+      street:guessStreet(address),
+      type:'',
+      bed:'-',bath:'-',car:'-',land:'-',floor:'-',
+      salePrice:'-',saleDate:'-',ownerType:'-',agency:'-',
+      rpdata:'',
+      section:section||'Manually Added'
+    };
+    PROPERTY_DATA.push(p);
+    renderBrowser();
+  }
   const pak=ak(p);
   if(!ann[pak]) ann[pak]={};
   ann[pak].tag=tag||'';
@@ -1397,7 +1424,7 @@ async function saveEntry(){
   // Mirror this status into the properties list too, so a status set by
   // tapping the map shows up as a tag there as well (both directions stay
   // in sync — geocodeAndMark handles the list → map direction).
-  syncAnnFromMap(entry.address, entry.suburb, pendSt, entry.notes);
+  syncAnnFromMap(entry.address, entry.suburb, pendSt, entry.notes, entry.section);
   // Open Monday form for map/lap or drop/email
   if(MF_STATUSES.has(pendSt)){
     setTimeout(()=>openMondayForm(window._addr, window._sub, pendSt), 300);
