@@ -43,6 +43,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .sp.on{background:var(--blue);border-color:var(--blue);color:#fff}
 .bar-icon{width:32px;height:32px;border-radius:8px;border:1.5px solid var(--border);
   background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px}
+.bar-icon.filter-active{background:var(--blue);border-color:var(--blue)}
 .sync{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 2px #dcfce7;transition:.3s}
 .sync.off{background:var(--gray);box-shadow:0 0 0 2px #f3f4f6}
 .sync.syn{background:#f59e0b;animation:pu 1s infinite}
@@ -403,6 +404,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
   <div class="sync" id="syncDot"></div>
   <button class="bar-icon" id="doneBtn" title="Check all changes saved before closing" style="background:#1d3fbb;border-color:#1d3fbb;color:#fff;width:auto;padding:0 10px;font-size:11px;font-weight:800;letter-spacing:.03em">SAVE</button>
   <button class="bar-icon" id="statsBtn">📊</button>
+  <button class="bar-icon" id="filterBtn" title="Filter map by status">🏷️</button>
   <button class="bar-icon" id="exportBtn" style="display:none">⬇️</button>
   <button class="bar-icon" id="clearSecBtn" style="display:none">🗑️</button>
   <button class="bar-icon" id="themeBtn" title="Toggle light/dark">🌙</button>
@@ -434,12 +436,13 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
 <!-- ══ MAP PANEL ══ -->
 <div class="panel on" id="panel-map">
   <div class="secstrip" id="secRow"></div>
+  <div class="secstrip" id="statusRow" style="display:none"></div>
   <div class="map-wrap">
     <div id="map"></div>
     <div class="legend collapsible" id="legend">
       <div class="legend-hdr" id="legendHdr">Legend <span id="legendArr">▾</span></div>
-      <div class="leg"><div class="ldot" style="background:var(--green)"></div>MAP/LAP</div>
-      <div class="leg"><div class="ldot" style="background:#4ade80"></div>Drop/Email CMA</div>
+      <div class="leg"><div class="ldot" style="background:var(--green)"></div>Leads</div>
+      <div class="leg"><div class="ldot" style="background:#ff0000"></div>Chase</div>
       <div class="leg"><div class="ldot" style="background:var(--slate)"></div>No Access</div>
       <div class="leg"><div class="ldot" style="background:var(--orange)"></div>Tenanted/Not Int.</div>
       <div class="leg"><div class="ldot" style="background:var(--navy)"></div>New Contact</div>
@@ -449,7 +452,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
     <button class="loc-btn" id="locBtn">📍</button>
     <div class="badge">
       <span class="bd"><span class="bc" style="background:var(--green)"></span><span id="cC">0</span></span>
-      <span class="bd"><span class="bc" style="background:#4ade80"></span><span id="cN">0</span></span>
+      <span class="bd"><span class="bc" style="background:#ff0000"></span><span id="cN">0</span></span>
       <span class="bd"><span class="bc" style="background:var(--navy)"></span><span id="cCh">0</span></span>
       <span class="bd"><span class="bc" style="background:var(--gray)"></span><span id="cNA">0</span></span>
       <span style="color:var(--sub);font-size:11px">today</span>
@@ -550,8 +553,8 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
   <div class="sh-body">
     <div class="sh-lbl">Status</div>
     <div class="sh-grid">
-      <button class="sh-btn" id="btn-ml" data-st="map_lap"><span class="e">🏃</span>MAP/LAP</button>
-      <button class="sh-btn" id="btn-de" data-st="drop_email"><span class="e">📬</span>Drop/Email</button>
+      <button class="sh-btn" id="btn-ml" data-st="map_lap"><span class="e">🏃</span>Leads</button>
+      <button class="sh-btn" id="btn-de" data-st="drop_email"><span class="e">📬</span>Chase</button>
       <button class="sh-btn" id="btn-na" data-st="no_access"><span class="e">🔒</span>No Access</button>
       <button class="sh-btn" id="btn-t"  data-st="tenanted"><span class="e">🏠</span>Tenanted</button>
       <button class="sh-btn" id="btn-ni" data-st="not_interested"><span class="e">✋</span>Not Int.</button>
@@ -634,8 +637,8 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
 <script>
 // ─── CONSTANTS ────────────────────────────────────────────────
 const ST = {
-  map_lap:          {label:'MAP/LAP',          color:'#16a34a', emoji:'🏃'},
-  drop_email:       {label:'Drop/Email CMA',   color:'#4ade80', emoji:'📬'},
+  map_lap:          {label:'Leads',            color:'#16a34a', emoji:'🏃'},
+  drop_email:       {label:'Chase',            color:'#ff0000', emoji:'📬'},
   no_access:        {label:'No Access',        color:'#4b5563', emoji:'🔒'},
   tenanted:         {label:'Tenanted',         color:'#ea580c', emoji:'🏠'},
   not_interested:   {label:'Not Interested',   color:'#ea580c', emoji:'✋'},
@@ -644,8 +647,8 @@ const ST = {
   recent_sale:      {label:'Recent Sale',      color:'#7c3aed', emoji:'🏷'},
 };
 const TAGS = [
-  {k:'map_lap',          l:'MAP/LAP',    c:'#16a34a'},
-  {k:'drop_email',       l:'Drop/Email', c:'#4ade80'},
+  {k:'map_lap',          l:'Leads',      c:'#16a34a'},
+  {k:'drop_email',       l:'Chase',      c:'#ff0000'},
   {k:'no_access',        l:'No Access',  c:'#4b5563'},
   {k:'tenanted',         l:'Tenanted',   c:'#ea580c'},
   {k:'not_interested',   l:'Not Int.',   c:'#ea580c'},
@@ -697,6 +700,7 @@ let secLayers=[];
 let mainTab='map', bTab='browse';
 let bLvl='sections', bSec=null, bStr=null, bQ='', bOE='all';
 let sF='all', sDebounce=null;
+let statusFilter=null; // map/list filter by status key (e.g. 'chase'); null = show all
 let ann={};
 let fbSave=null, fbDel=null, fbSaveSecs=null, fbSaveAnchor=null, fbSaveAddrLoc=null, fbSaveKnockActive=null, fbDelKnockActive=null, fbSaveKnockSession=null;
 // In-memory section store, populated from Firestore only — nothing here
@@ -973,6 +977,37 @@ function renderSecPills(){
     h+='<button data-sec="'+dn+'" onclick="window.setSec(this.dataset.sec)" style="padding:5px 11px;border-radius:99px;font-size:11px;font-weight:700;border:1.5px solid '+col+';background:'+bg+';color:'+fg+';cursor:pointer;white-space:nowrap;flex-shrink:0;margin-right:4px">'+en+'</button>';
   });
   row.innerHTML=h;
+}
+
+// ─── STATUS FILTER (map pins + property list) ──────────────────
+function renderStatusPills(){
+  const row=$('statusRow'); if(!row) return;
+  let h='<button class="sec'+(statusFilter===null?' on':'')+'" onclick="window.setStatusFilter(null)">All</button>';
+  TAGS.forEach(t=>{
+    const isActive=statusFilter===t.k;
+    const col=isActive?t.c:'var(--border)';
+    const fg=isActive?'#fff':'var(--sub)';
+    const bg=isActive?t.c:'transparent';
+    h+='<button data-status="'+t.k+'" onclick="window.setStatusFilter(\''+t.k+'\')" '+
+      'style="padding:5px 13px;border-radius:99px;font-size:11px;font-weight:700;border:1.5px solid '+col+';'+
+      'background:'+bg+';color:'+fg+';cursor:pointer;white-space:nowrap;flex-shrink:0;margin-right:4px">'+esc(t.l)+'</button>';
+  });
+  row.innerHTML=h;
+}
+function setStatusFilter(key){
+  statusFilter = (statusFilter===key) ? null : key;
+  renderStatusPills();
+  renderMarkers();
+  if(mainTab==='browser') renderBrowser();
+  const btn=$('filterBtn');
+  if(btn) btn.classList.toggle('filter-active', statusFilter!==null);
+}
+window.setStatusFilter=setStatusFilter;
+function toggleStatusRow(){
+  const row=$('statusRow'); if(!row) return;
+  const show = row.style.display==='none' || !row.style.display;
+  row.style.display = show ? 'flex' : 'none';
+  if(show) renderStatusPills();
 }
 
 function renameSection(name){
@@ -1507,7 +1542,30 @@ function placeMarker(entry){
   if(entry.notes)m.bindTooltip('<b>'+entry.address+'</b><br>'+entry.notes,{direction:'top'});
   markers[key]=m;
 }
-function renderMarkers(){Object.values(markers).forEach(m=>map.removeLayer(m));markers={};Object.values(entries).forEach(e=>placeMarker(e))}
+// Rebuilds map markers to match `entries`, but only actually touches a
+// marker when its data changed (or it's new/removed) instead of always
+// wiping and recreating every pin. The old always-nuke approach meant any
+// Firestore update — including the reconnect snapshot that fires the
+// moment the app comes back from being backgrounded — destroyed and
+// recreated ALL pins at once. If that landed right as a rep tapped a pin,
+// the tap silently did nothing (the layer under their finger was gone),
+// and on a phone with many pins the sheer churn could visibly lag the UI
+// too. This is the root cause behind "switch apps and come back, can't
+// tag anymore" — leaving unchanged pins alone avoids both problems.
+function renderMarkers(){
+  const wantedKeys=new Set(Object.keys(entries).filter(k=>!statusFilter||entries[k].status===statusFilter));
+  Object.keys(markers).forEach(k=>{
+    if(!wantedKeys.has(k)){ map.removeLayer(markers[k]); delete markers[k]; }
+  });
+  wantedKeys.forEach(k=>{
+    const e=entries[k];
+    const sig=e.status+'|'+e.lat+'|'+e.lng+'|'+(e.notes||'');
+    const m=markers[k];
+    if(m && m._sig===sig) return; // unchanged — don't touch the live layer
+    placeMarker(e);
+    if(markers[k]) markers[k]._sig=sig;
+  });
+}
 function updateBadge(){
   const today=new Date().toDateString();
   const t=Object.values(entries).filter(e=>new Date(e.updated_at).toDateString()===today);
@@ -1785,7 +1843,9 @@ function bGoSec(){bLvl='streets';bStr=null;bQ='';$('bfin').value='';$('bfix').st
 
 function renderBSections(){
   $('oeRow').style.display='none';
-  const props=subProps(),sm={};
+  let props=subProps();
+  if(statusFilter) props=props.filter(p=>ann[ak(p)]?.tag===statusFilter);
+  const sm={};
   props.forEach(p=>{const s=p.section||'Other';sm[s]=(sm[s]||0)+1});
   const keys=Object.keys(sm).filter(s=>!bQ||s.toLowerCase().includes(bQ)).sort();
   const body=$('bBody');
@@ -1803,7 +1863,9 @@ function renderBSections(){
 }
 function renderBStreets(){
   $('oeRow').style.display='none';
-  const props=subProps().filter(p=>p.section===bSec),sm={};
+  let props=subProps().filter(p=>p.section===bSec);
+  if(statusFilter) props=props.filter(p=>ann[ak(p)]?.tag===statusFilter);
+  const sm={};
   props.forEach(p=>{const s=p.street||'Unknown';sm[s]=(sm[s]||0)+1});
   const keys=Object.keys(sm).filter(s=>!bQ||s.toLowerCase().includes(bQ)||tc(s).toLowerCase().includes(bQ)).sort();
   const body=$('bBody');
@@ -1834,6 +1896,7 @@ function getParent(address){
 function renderBProps(){
   let props=subProps().filter(p=>p.section===bSec&&p.street===bStr);
   if(bQ) props=props.filter(p=>p.address.toLowerCase().includes(bQ));
+  if(statusFilter) props=props.filter(p=>ann[ak(p)]?.tag===statusFilter);
   // Sort by street number
   props.sort((a,b)=>getStreetNum(a.address)-getStreetNum(b.address));
   // Show odd/even filter row
@@ -2539,6 +2602,7 @@ document.querySelectorAll('[data-sf]').forEach(b=>b.addEventListener('click',()=
 document.querySelectorAll('[data-st]').forEach(b=>b.addEventListener('click',()=>pickStatus(b.dataset.st)));
 
 $('statsBtn').addEventListener('click',openStats);
+$('filterBtn').addEventListener('click',toggleStatusRow);
 // ─── BAR OVERFLOW MENU ──────────────────────────────────────────
 // Export and Clear-Sections used to be their own top-bar icons; they're
 // now tucked behind this ⋮ so the bar has fewer buttons crowding it.
@@ -3286,8 +3350,10 @@ document.addEventListener('visibilitychange',()=>{
   // Re-enable network to force snapshot refresh — but only if we were
   // actually away long enough for that to matter. Doing this on every
   // brief switch (glancing at a text, a system dialog) forces a fresh
-  // snapshot + full property-list rebuild each time, which is the main
-  // source of the app feeling like it "freezes" when switching apps.
+  // snapshot for no reason. (renderMarkers()/applyDocs() are now safe to
+  // call often — they only touch what actually changed — so this
+  // threshold is just to avoid needless network chatter, not to dodge a
+  // UI-wiping rebuild like it used to.)
   if(hiddenMs>3000 && window._fbDb){
     import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js').then(({enableNetwork})=>{
       enableNetwork(window._fbDb).catch(()=>{});
