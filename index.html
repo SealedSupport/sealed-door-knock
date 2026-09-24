@@ -407,6 +407,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
   <button class="bar-icon" id="filterBtn" title="Filter map by status">🏷️</button>
   <button class="bar-icon" id="exportBtn" style="display:none">⬇️</button>
   <button class="bar-icon" id="clearSecBtn" style="display:none">🗑️</button>
+  <button class="bar-icon" id="refreshBtn" title="Refresh app">🔄</button>
   <button class="bar-icon" id="themeBtn" title="Toggle light/dark">🌙</button>
   <div style="position:relative">
     <button class="bar-icon" id="barMoreBtn" title="More">⋮</button>
@@ -1270,6 +1271,7 @@ function startPickLocation(address, suburb){
   switchMain('map');
   toast('📍 Tap the map to set the location for '+tc(address));
 }
+let _mapTapSeq=0;
 async function onMapClick(e){
   if(_pickingAnchorFor){
     const {parent, suburb}=_pickingAnchorFor;
@@ -1312,6 +1314,7 @@ async function onMapClick(e){
     return;
   }
   const{lat,lng}=e.latlng; pendLL={lat,lng};
+  const tapId=++_mapTapSeq;
   const key=mkKey(lat,lng), ex=entries[key];
   pendSt=ex?ex.status:null;
   window._addrReady=false; // guards pickStatus() below until reverse-geocode resolves
@@ -1322,11 +1325,15 @@ async function onMapClick(e){
   $('shDel').style.display=ex?'block':'none';
   updateShBtns(); openSheet();
   try{
-    const d = await queueGeoRequest(async ()=>{
-      const r=await fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lng+'&format=json');
+    const revGeo=()=>queueGeoRequest(async ()=>{
+      const r=await geoFetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lng+'&format=json');
       if(!r.ok) throw new Error('Nominatim HTTP '+r.status);
       return r.json();
     });
+    let d;
+    try{ d=await revGeo(); }
+    catch(err){ if(err?.name==='AbortError' && tapId===_mapTapSeq) d=await revGeo(); else throw err; }
+    if(tapId!==_mapTapSeq) return; // a newer tap owns the sheet now
     const num=d.address?.house_number||'';
     const road=d.address?.road||d.address?.pedestrian||d.address?.footway||'';
     const s=d.address?.suburb||d.address?.city_district||d.address?.town||'';
@@ -1335,7 +1342,7 @@ async function onMapClick(e){
     window._addr=rawAddr?rawAddr.replace(/\b\w/g,c=>c.toUpperCase()):(lat.toFixed(5)+','+lng.toFixed(5));
     window._sub=s?s.replace(/\b\w/g,c=>c.toUpperCase()):sub;
     $('shAddr').value=window._addr; $('shSub').textContent=window._sub+', VIC';
-  }catch(err){console.error('Reverse geocode failed for', lat, lng, err);window._addr=lat.toFixed(5)+','+lng.toFixed(5);window._sub=sub;$('shAddr').value=window._addr}
+  }catch(err){if(tapId!==_mapTapSeq)return;console.error('Reverse geocode failed for', lat, lng, err);window._addr=lat.toFixed(5)+','+lng.toFixed(5);window._sub=sub;$('shAddr').value=window._addr}
   window._addrReady=true;
   updateShAddrHint();
 }
@@ -2125,6 +2132,28 @@ const _geoCache = {};
 let _geoQueueTail = Promise.resolve();
 const _geoMinGapMs = 1100;
 let _geoLastCallAt = 0;
+// APP-RESUME FREEZE FIX: on iOS/Android, a fetch that's in flight when
+// the app is backgrounded often never settles. Because every Nominatim call
+// runs through the single serial queue above, one hung request blocked the
+// queue forever — every later map tap sat on "Loading…" with _addrReady
+// false, so status buttons refused to tag until the app was restarted.
+// geoFetch caps each request (abort, not just race, so the socket is freed)
+// and resetGeoQueue() lets the resume handler drop anything stranded.
+const _geoInflight = new Set();
+function geoFetch(url, ms=8000){
+  const ctl = new AbortController();
+  _geoInflight.add(ctl);
+  const t = setTimeout(()=>ctl.abort(), ms);
+  return fetch(url, {signal: ctl.signal})
+    .then(async r=>{ const txt = await r.text(); return {ok:r.ok, status:r.status, json:()=>JSON.parse(txt)}; })
+    .finally(()=>{ clearTimeout(t); _geoInflight.delete(ctl); });
+}
+function resetGeoQueue(){
+  _geoInflight.forEach(c=>{ try{ c.abort(); }catch(_){} });
+  _geoInflight.clear();
+  _geoQueueTail = Promise.resolve();
+  _geoLastCallAt = 0;
+}
 function queueGeoRequest(fn){
   const run = ()=>{
     const wait = Math.max(0, _geoLastCallAt + _geoMinGapMs - Date.now());
@@ -2307,7 +2336,7 @@ async function geocodeAndMark(p, ti){
       const tryQuery = async (params, label)=>{
         try{
           const d = await queueGeoRequest(async ()=>{
-            const r = await fetch('https://nominatim.openstreetmap.org/search?' + params);
+            const r = await geoFetch('https://nominatim.openstreetmap.org/search?' + params);
             if(!r.ok) throw new Error('Nominatim HTTP '+r.status);
             return r.json();
           });
@@ -2435,7 +2464,7 @@ async function geocodeAndMark(p, ti){
           bounded: '1'
         });
         const d = await queueGeoRequest(async ()=>{
-          const r = await fetch('https://nominatim.openstreetmap.org/search?' + params);
+          const r = await geoFetch('https://nominatim.openstreetmap.org/search?' + params);
           if(!r.ok) throw new Error('Nominatim HTTP '+r.status);
           return r.json();
         });
@@ -3019,6 +3048,19 @@ function toggleTheme(){
   applyTheme(dark);
 })();
 $('themeBtn').addEventListener('click',toggleTheme);
+// Manual refresh — gives pending saves up to 6s to land first, then reloads.
+// Session/tags/pins all come back from Firestore on reload.
+$('refreshBtn').addEventListener('click', async ()=>{
+  const pending=()=>_preReadyQueue.length+(window._pendingWrites||0);
+  if(pending()>0){
+    toast('💾 Finishing saves before refresh…');
+    const t0=Date.now();
+    while(pending()>0 && Date.now()-t0<6000) await new Promise(r=>setTimeout(r,200));
+    if(pending()>0 && !confirm(pending()+' change(s) not confirmed saved yet. Refresh anyway?')) return;
+  }
+  window._forceReload=true;
+  location.reload();
+});
 
 function fmtDuration(ms){
   const totalMin=Math.max(0,Math.round(ms/60000));
@@ -3094,6 +3136,9 @@ function _pushActiveSession(){
 }
 function startSession(){
   if(knockSession) return;
+  // Right after a refresh, a running session hasn't been restored from
+  // Firestore yet — starting now would overwrite it with a fresh 00:00.
+  if(!window._dataReady){ toast('⏳ Loading your session — try again in a sec'); return; }
   knockSession={start:Date.now(), knocks:0, tagged:0};
   renderKnockUI();
   _pushActiveSession();
@@ -3320,6 +3365,7 @@ $('legendHdr').addEventListener('click',toggleLegend);
 // here. The save-queue and visible "N unsynced" badge are what actually
 // protect data on mobile — this dialog is a bonus for desktop use only.
 window.addEventListener('beforeunload', function(e){
+  if(window._forceReload) return; // user already confirmed via 🔄
   const pending = _preReadyQueue.length + (window._pendingWrites||0);
   if(pending>0){
     e.preventDefault();
@@ -3354,14 +3400,37 @@ document.addEventListener('visibilitychange',()=>{
   // call often — they only touch what actually changed — so this
   // threshold is just to avoid needless network chatter, not to dodge a
   // UI-wiping rebuild like it used to.)
-  if(hiddenMs>3000 && window._fbDb){
-    import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js').then(({enableNetwork})=>{
-      enableNetwork(window._fbDb).catch(()=>{});
-    });
-  }
+  if(hiddenMs>3000) recoverFromBackground();
   updateOnlineStatus();
   maybeNudgeActiveSession();
 });
+// Returning from background: the OS has usually killed sockets while the
+// JS still thinks they're open. enableNetwork() alone is a no-op when the
+// network is already "enabled", so the dead Firestore stream was never
+// replaced — disable→enable forces a fresh connection (pending writes stay
+// queued locally and resend). Also clears any geocode request stranded mid-
+// flight, and unlocks an open sheet that was stuck on "Loading…".
+let _recovering=false;
+function recoverFromBackground(){
+  if(_recovering) return; _recovering=true;
+  setTimeout(()=>{ _recovering=false; }, 1500);
+  resetGeoQueue();
+  if($('sheet').classList.contains('on') && !window._addrReady){
+    window._addr=window._addr||($('shAddr').value!=='Loading…'?$('shAddr').value:(pendLL?pendLL.lat.toFixed(5)+','+pendLL.lng.toFixed(5):''));
+    window._sub=window._sub||sub;
+    if($('shAddr').value==='Loading…') $('shAddr').value=window._addr;
+    window._addrReady=true;
+    updateShAddrHint();
+  }
+  if(window._fbDb && navigator.onLine){
+    import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js').then(async({disableNetwork,enableNetwork})=>{
+      try{ await disableNetwork(window._fbDb); }catch(_){}
+      try{ await enableNetwork(window._fbDb); }catch(_){}
+    }).catch(()=>{});
+  }
+}
+// bfcache restore (Safari/Chrome can freeze & restore the whole page)
+window.addEventListener('pageshow',e=>{ if(e.persisted){ if(map) map.invalidateSize(true); recoverFromBackground(); } });
 // Forgetting to press "End Session" after switching apps mid-knock is a
 // known habit — nudge on return if one's been running a long while,
 // throttled so it doesn't nag on every single app switch.
