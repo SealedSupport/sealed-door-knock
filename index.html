@@ -404,7 +404,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
   <div class="sync" id="syncDot"></div>
   <button class="bar-icon" id="doneBtn" title="Check all changes saved before closing" style="background:#1d3fbb;border-color:#1d3fbb;color:#fff;width:auto;padding:0 10px;font-size:11px;font-weight:800;letter-spacing:.03em">SAVE</button>
   <button class="bar-icon" id="statsBtn">📊</button>
-  <button class="bar-icon" id="filterBtn" title="Filter map by status">🏷️</button>
+  <button class="bar-icon" id="filterBtn" title="Filter by status">🏷️</button>
   <button class="bar-icon" id="exportBtn" style="display:none">⬇️</button>
   <button class="bar-icon" id="clearSecBtn" style="display:none">🗑️</button>
   <button class="bar-icon" id="refreshBtn" title="Refresh app">🔄</button>
@@ -434,10 +434,12 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
   <button class="t" data-main="browser">🏘 Properties</button>
 </div>
 
+<!-- STATUS FILTER ROW — shared by Map and Properties (toggled by 🏷️) -->
+<div class="secstrip" id="statusRow" style="display:none"></div>
+
 <!-- ══ MAP PANEL ══ -->
 <div class="panel on" id="panel-map">
   <div class="secstrip" id="secRow"></div>
-  <div class="secstrip" id="statusRow" style="display:none"></div>
   <div class="map-wrap">
     <div id="map"></div>
     <div class="legend collapsible" id="legend">
@@ -999,7 +1001,7 @@ function setStatusFilter(key){
   statusFilter = (statusFilter===key) ? null : key;
   renderStatusPills();
   renderMarkers();
-  if(mainTab==='browser') renderBrowser();
+  if(mainTab==='browser'){ renderBrowser(); if(bTab==='search') runSearch(); }
   const btn=$('filterBtn');
   if(btn) btn.classList.toggle('filter-active', statusFilter!==null);
 }
@@ -1009,6 +1011,7 @@ function toggleStatusRow(){
   const show = row.style.display==='none' || !row.style.display;
   row.style.display = show ? 'flex' : 'none';
   if(show) renderStatusPills();
+  if(map) setTimeout(()=>map.invalidateSize(true),50);
 }
 
 function renameSection(name){
@@ -1779,7 +1782,8 @@ async function copyReportText(){
 function emailReportText(){
   const subject=encodeURIComponent('Door Knock Report — '+periodLabel(stPeriod));
   const body=encodeURIComponent($('stReportText').value);
-  window.location.href='mailto:?subject='+subject+'&body='+body;
+  const to='michael@sealedrealestate.com.au,support@sealedrealestate.com.au';
+  window.location.href='mailto:'+to+'?subject='+subject+'&body='+body;
 }
 
 // ─── EXPORT ───────────────────────────────────────────────────
@@ -2551,10 +2555,11 @@ function runSearch(){
   else if(sF==='rented') res=res.filter(p=>p.ownerType&&p.ownerType.toLowerCase().includes('rent'));
   else if(sF==='house') res=res.filter(p=>p.type&&p.type.toLowerCase().includes('house'));
   else if(sF==='unit') res=res.filter(p=>p.type&&(p.type.toLowerCase().includes('unit')||p.type.toLowerCase().includes('townhouse')));
+  if(statusFilter) res=res.filter(p=>ann[ak(p)]?.tag===statusFilter);
   const total=res.length;
-  $('sCnt').textContent=q||sF!=='all'?total.toLocaleString()+' result'+(total!==1?'s':''):'Type to search '+PROPERTY_DATA.length.toLocaleString()+' properties';
+  $('sCnt').textContent=q||sF!=='all'||statusFilter?total.toLocaleString()+' result'+(total!==1?'s':''):'Type to search '+PROPERTY_DATA.length.toLocaleString()+' properties';
   const el=$('sList');
-  if(!q&&sF==='all'){el.innerHTML='<div class="es"><div class="es-i">🔍</div><div class="es-t">Search properties</div><div class="es-s">Find by address, street or suburb.</div></div>';return}
+  if(!q&&sF==='all'&&!statusFilter){el.innerHTML='<div class="es"><div class="es-i">🔍</div><div class="es-t">Search properties</div><div class="es-s">Find by address, street or suburb.</div></div>';return}
   if(!res.length){el.innerHTML='<div class="es"><div class="es-i">🤷</div><div class="es-t">No results</div></div>';return}
   const MAX=100,shown=res.slice(0,MAX);
   const hl=t=>{if(!q)return esc(t);const i=t.toLowerCase().indexOf(q);if(i<0)return esc(t);return esc(t.slice(0,i))+'<mark>'+esc(t.slice(i,i+q.length))+'</mark>'+esc(t.slice(i+q.length))};
@@ -2905,7 +2910,8 @@ async function initFB(){
         // Ask once, right after the app has actually loaded, whether this
         // is a knocking session or just browsing — but only if a session
         // isn't already running/restored (nothing to ask then).
-        if(!knockSession) showSessionPrompt();
+        if(!knockSession && !window._restoredView) showSessionPrompt();
+        if(window._restoredView) restoreScroll();
       }
     }
     // Catches up any already-tagged pin whose address has a pre-set location
@@ -3058,6 +3064,7 @@ $('refreshBtn').addEventListener('click', async ()=>{
     while(pending()>0 && Date.now()-t0<6000) await new Promise(r=>setTimeout(r,200));
     if(pending()>0 && !confirm(pending()+' change(s) not confirmed saved yet. Refresh anyway?')) return;
   }
+  saveViewState();
   window._forceReload=true;
   location.reload();
 });
@@ -3374,9 +3381,61 @@ window.addEventListener('beforeunload', function(e){
   }
 });
 
+
+// ─── STAY-IN-PLACE ON REFRESH ───────────────────────────────
+// The 🔄 button snapshots where you are (suburb, tab, drill-down, filters,
+// search, map position, list scroll) into sessionStorage; the next load
+// restores it once, then clears it. Normal app opens still start fresh.
+const VIEW_KEY='skd_view_state';
+function saveViewState(){
+  try{
+    const c=map?map.getCenter():null;
+    sessionStorage.setItem(VIEW_KEY,JSON.stringify({
+      sub, mainTab, bTab, bLvl, bSec, bStr, bQ, bOE, secActive, statusFilter,
+      search: $('sIn') ? $('sIn').value : '',
+      center: c ? [c.lat,c.lng] : null, zoom: map ? map.getZoom() : null,
+      bScroll: $('bBody') ? $('bBody').scrollTop : 0,
+      sScroll: $('sList') ? $('sList').scrollTop : 0
+    }));
+  }catch(e){}
+}
+let _viewState=null;
+function restoreViewState(){
+  try{ _viewState=JSON.parse(sessionStorage.getItem(VIEW_KEY)||'null'); sessionStorage.removeItem(VIEW_KEY); }catch(e){ _viewState=null; }
+  const v=_viewState; if(!v) return;
+  window._restoredView=true;
+  try{
+    if(v.sub && SUBURBS[v.sub] && v.sub!==sub) switchSub(v.sub);
+    // switchSub resets drill-down state, so apply it afterwards
+    bLvl=v.bLvl||'sections'; bSec=v.bSec||null; bStr=v.bStr||null; bOE=v.bOE||'all'; bQ=v.bQ||'';
+    $('bfin').value=bQ; $('bfix').style.display=bQ?'flex':'none';
+    if(v.secActive){ secActive=v.secActive; renderSecs(); renderSecPills(); }
+    if(v.statusFilter) setStatusFilter(v.statusFilter);
+    if(v.center && v.zoom!=null) map.setView(v.center,v.zoom,{animate:false});
+    if(v.mainTab==='browser') switchMain('browser');
+    if(v.bTab==='search'){
+      // same as switchBTab('search') but without auto-focusing (avoids popping the keyboard)
+      bTab='search';
+      document.querySelectorAll('[data-btab]').forEach(b=>b.classList.toggle('on',b.dataset.btab==='search'));
+      $('bp-browse').classList.remove('on'); $('bp-search').classList.add('on');
+    }
+    if(v.search){ $('sIn').value=v.search; $('sClear').style.display='flex'; }
+  }catch(e){ console.warn('View restore failed',e); }
+}
+// List content only exists once data has synced, so scroll is restored then
+function restoreScroll(){
+  const v=_viewState; if(!v) return;
+  if(v.search) try{ runSearch(); }catch(e){}
+  if(mainTab==='browser') try{ renderBrowser(); }catch(e){}
+  setTimeout(()=>{
+    if($('bBody')) $('bBody').scrollTop=v.bScroll||0;
+    if($('sList')) $('sList').scrollTop=v.sScroll||0;
+  },150);
+}
 // ─── BOOT ───────────────────────────────────────────────────
 loadAnn();
 initMap();
+restoreViewState();
 [60,250,700,1600].forEach(ms=>setTimeout(()=>map&&map.invalidateSize(true),ms));
 // Timestamp of when the app was last hidden, so the visible-again handler
 // below can tell a genuine backgrounding (rep switched to Photos/Maps for a
