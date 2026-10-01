@@ -582,6 +582,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
     <button class="sp on" data-period="today">Today</button>
     <button class="sp" data-period="week">This Week</button>
     <button class="sp" data-period="month">This Month</button>
+    <button class="sp" data-period="lastmonth">Last Month</button>
     <button class="sp" data-period="quarter">This Quarter</button>
     <button class="sp" data-period="year">This Year</button>
     <button class="sp" data-period="all">All Time</button>
@@ -1623,6 +1624,12 @@ function periodRange(period){
     case 'month':   start=startOfMonth(now); break;
     case 'quarter': start=startOfQuarter(now); break;
     case 'year':    start=startOfYear(now); break;
+    // Previous full calendar month — for the monthly report generated on
+    // the 1st (e.g. on 1 Oct this covers 1–30 Sep). Day 0 of the current
+    // month is the last day of the previous one.
+    case 'lastmonth':
+      start=new Date(now.getFullYear(),now.getMonth()-1,1);
+      return {start,end:new Date(now.getFullYear(),now.getMonth(),0,23,59,59,999)};
     default:        start=new Date(0); // 'all'
   }
   return {start,end};
@@ -1637,6 +1644,7 @@ function periodLabel(period){
     case 'today':   return now.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     case 'week':    return 'Week of '+short(start)+' – '+short(now);
     case 'month':   return now.toLocaleDateString('en-AU',{month:'long',year:'numeric'});
+    case 'lastmonth': return start.toLocaleDateString('en-AU',{month:'long',year:'numeric'});
     case 'quarter': return 'Q'+(Math.floor(now.getMonth()/3)+1)+' '+now.getFullYear();
     case 'year':    return String(now.getFullYear());
     default:        return 'All Time (through '+short(now)+')';
