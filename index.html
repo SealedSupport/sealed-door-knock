@@ -370,7 +370,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(14px);
   background:#111;color:#fff;border-radius:99px;padding:9px 16px;
   font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:all .22s;
-  white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+  white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.2);pointer-events:none}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 .leaflet-container{font-family:var(--f)}
 .es{padding:44px 20px;text-align:center;color:var(--sub)}
@@ -388,6 +388,77 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
 /* doorknocked indicator on untagged row */
 .dk-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;
   padding:2px 7px;border-radius:99px;color:#fff;vertical-align:middle;margin-left:6px}
+
+/* ══ LETTERBOX DROPS ══ */
+body.dark #lbMap .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.9)}
+body.lb-mode .knock-fab,body.lb-mode .knock-pill,body.lb-mode .kp-end-btn,body.lb-mode .knock-menu{display:none!important}
+body.lb-mode #statusRow,body.lb-mode #filterBtn{display:none!important}
+.lb-toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:7px 12px;
+  display:flex;gap:8px;align-items:center;flex-shrink:0}
+.lb-up{background:var(--blue);color:#fff;border:none;border-radius:99px;padding:7px 14px;
+  font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.lb-up:active{opacity:.85}
+.lb-chips{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.lb-chips::-webkit-scrollbar{display:none}
+.lb-perm{display:none;background:#b45309;color:#fff;font-size:12px;font-weight:700;padding:8px 14px;line-height:1.4;flex-shrink:0}
+.lb-perm.on{display:block}
+#lbMap{width:100%;height:100%}
+.lb-legend{position:absolute;top:10px;right:10px;z-index:500;background:var(--overlay);
+  border:1px solid var(--border);border-radius:10px;padding:7px 11px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+.lb-legend .leg{margin-top:3px;margin-bottom:3px}
+.lb-legend .lsw{width:16px;height:4px;border-radius:2px;flex-shrink:0}
+.lb-dlbl{background:var(--card);color:var(--text);border:2px solid #999;border-radius:6px;
+  font-size:10px;font-weight:800;padding:1px 5px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25);
+  transform:translate(-50%,-50%);display:inline-block}
+.lb-hide-labels .lb-dlbl{display:none}
+.lb-list{height:36vh;min-height:150px;display:flex;flex-direction:column;background:var(--card);
+  border-top:1px solid var(--border);flex-shrink:0;transition:height .2s}
+.lb-list.min{height:40px;min-height:40px}
+.lb-list-hdr{display:flex;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0}
+.lb-list-hdr .t{flex:1}
+.lb-min-btn{border:none;background:none;color:var(--sub);font-size:15px;font-weight:800;padding:0 14px;cursor:pointer}
+.lb-body{flex:1;overflow-y:auto}
+.lb-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer}
+.lb-row:active{background:var(--bg)}
+.lb-sw{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.lb-main{flex:1;min-width:0}
+.lb-t{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-s{font-size:11.5px;color:var(--sub);margin-top:1px}
+.lb-r{font-size:12px;font-weight:800;text-align:right;white-space:nowrap}
+.lb-act{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.lb-act input[type=date]{background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);
+  font-size:12px;padding:4px 6px;font-family:var(--f)}
+.lb-ibtn{background:var(--bg);border:1.5px solid var(--border);border-radius:7px;padding:4px 8px;font-size:12px;cursor:pointer;color:var(--text)}
+.lb-sel-pill{display:none;align-items:center;gap:6px;background:var(--blue);color:#fff;border-radius:99px;
+  padding:4px 10px;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;flex-shrink:0}
+.lb-sel-pill.on{display:flex}
+/* screenshot alignment */
+.lb-align{display:none;position:absolute;inset:0;z-index:600;pointer-events:none}
+.lb-align.on{display:block}
+.lb-aligning .leaflet-control-zoom,.lb-aligning .lb-legend,.lb-aligning .lb-toolbar{display:none!important}
+.lb-align img{position:absolute;pointer-events:none;opacity:.5;outline:2px dashed #1d3fbb;outline-offset:0}
+.lb-align-top{position:absolute;top:8px;left:8px;right:8px;pointer-events:auto;background:var(--overlay);
+  border:1px solid var(--border);border-radius:12px;padding:9px 11px;box-shadow:0 3px 14px rgba(0,0,0,.18);font-size:12px}
+.lb-align-top b{display:block;font-size:13px;margin-bottom:3px}
+.lb-align-top .sub{color:var(--sub);line-height:1.35;margin-bottom:7px}
+.lb-sl{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--sub);font-size:11px;margin-top:4px}
+.lb-sl input[type=range]{flex:1}
+.lb-find{display:flex;gap:6px;margin-top:6px}
+.lb-find input{flex:1;min-width:0;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:6px 9px;
+  font-size:13px;color:var(--text);font-family:var(--f);outline:none}
+.lb-align-bot{position:absolute;left:8px;right:8px;bottom:10px;pointer-events:auto;display:flex;gap:8px}
+.lb-align-bot button{flex:1;border:none;border-radius:11px;padding:12px;font-size:14px;font-weight:800;cursor:pointer;
+  box-shadow:0 3px 12px rgba(0,0,0,.2)}
+.lb-busy{display:none;position:absolute;inset:0;z-index:700;background:rgba(0,0,0,.35);color:#fff;
+  align-items:center;justify-content:center;font-size:14px;font-weight:800;text-align:center;padding:20px}
+.lb-busy.on{display:flex}
+/* review sheet */
+#lbSheet{max-height:78vh;overflow-y:auto}
+.lb-rv-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px}
+.lb-rv-row input{width:18px;height:18px;flex-shrink:0;accent-color:var(--blue)}
+.lb-rv-row .m{flex:1;min-width:0}
+.lb-rv-row .m div:first-child{font-weight:700}
+.lb-rv-row .m div:last-child{font-size:11.5px;color:var(--sub)}
 </style>
 </head>
 <body>
@@ -432,6 +503,7 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
 <div class="tabs">
   <button class="t on" data-main="map">🗺 Map</button>
   <button class="t" data-main="browser">🏘 Properties</button>
+  <button class="t" data-main="drops">📬 Letterbox</button>
 </div>
 
 <!-- STATUS FILTER ROW — shared by Map and Properties (toggled by 🏷️) -->
@@ -509,6 +581,71 @@ mark{background:#fef9c3;border-radius:3px;padding:0 2px}
     <div class="s-list" id="sList">
       <div class="es"><div class="es-i">🔍</div><div class="es-t">Search properties</div><div class="es-s">Find any property by address,<br>street or suburb.</div></div>
     </div>
+  </div>
+</div>
+
+
+<!-- ══ LETTERBOX DROPS PANEL (separate data: Firestore collection "letterbox_drops") ══ -->
+<div class="panel" id="panel-drops">
+  <div class="lb-toolbar">
+    <button class="lb-up" id="lbUploadBtn">＋ Upload walk</button>
+    <input type="file" id="lbFile" accept=".gpx,.kml,.tcx,.xml,image/*" style="display:none">
+    <div class="lb-chips" id="lbChips"></div>
+    <div class="lb-sel-pill" id="lbSelPill"></div>
+  </div>
+  <div class="lb-perm" id="lbPerm"></div>
+  <div class="map-wrap">
+    <div id="lbMap"></div>
+    <div class="lb-legend" id="lbLegend">
+      <div class="leg"><div class="lsw" style="background:#16a34a"></div>0–7 days</div>
+      <div class="leg"><div class="lsw" style="background:#f59e0b"></div>8–30 days</div>
+      <div class="leg"><div class="lsw" style="background:#ea580c"></div>31–90 days</div>
+      <div class="leg"><div class="lsw" style="background:#9ca3af"></div>90+ days</div>
+    </div>
+    <div class="lb-align" id="lbAlign">
+      <img id="lbAlignImg" alt="">
+      <div class="lb-align-top">
+        <b>Line up the screenshot</b>
+        <div class="sub">Drag &amp; pinch the map underneath until its streets sit exactly under the faded screenshot.</div>
+        <div class="lb-find">
+          <input id="lbFindIn" type="search" placeholder="Jump to a street, e.g. Graham Rd Highett" autocomplete="off">
+          <button class="lb-ibtn" id="lbFindBtn">Go</button>
+        </div>
+        <div class="lb-sl">Size <input type="range" id="lbScale" min="40" max="250" value="100"></div>
+        <div class="lb-sl">Fade <input type="range" id="lbOpacity" min="15" max="90" value="50"></div>
+      </div>
+      <div class="lb-align-bot">
+        <button id="lbAlignCancel" style="background:var(--card);color:var(--text)">Cancel</button>
+        <button id="lbAlignDone" style="background:var(--green);color:#fff">✓ Lined up</button>
+      </div>
+    </div>
+    <div class="lb-busy" id="lbBusy">Reading streets…</div>
+  </div>
+  <div class="lb-list" id="lbList">
+    <div class="lb-list-hdr">
+      <button class="t on" data-lbv="streets">Streets</button>
+      <button class="t" data-lbv="drops">Uploads</button>
+      <button class="lb-min-btn" id="lbMinBtn" title="Collapse list">▾</button>
+    </div>
+    <div class="lb-body" id="lbBody"></div>
+  </div>
+</div>
+
+
+<!-- LETTERBOX REVIEW SHEET -->
+<div class="ov" id="lbOv"></div>
+<div class="sheet" id="lbSheet" style="padding-bottom:max(env(safe-area-inset-bottom),24px)">
+  <div class="sh-handle"></div>
+  <div style="padding:14px 18px 0">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:6px">Letterbox drop</div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+      <label style="font-size:13px;font-weight:700">Date completed</label>
+      <input type="date" id="lbRvDate" style="flex:1;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:7px 9px;font-size:14px;color:var(--text);font-family:var(--f)">
+    </div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:10px" id="lbRvSub"></div>
+    <div id="lbRvList"></div>
+    <button class="sh-save" id="lbRvSave" style="margin-top:14px">💾 Save drop</button>
+    <button id="lbRvCancel" style="width:100%;background:none;border:none;color:var(--sub);font-size:13px;font-weight:600;cursor:pointer;padding:8px">Cancel</button>
   </div>
 </div>
 
@@ -896,6 +1033,9 @@ function switchMain(tab){
   document.querySelectorAll('[data-main]').forEach(b=>b.classList.toggle('on',b.dataset.main===tab));
   $('panel-map').classList.toggle('on',tab==='map');
   $('panel-browser').classList.toggle('on',tab==='browser');
+  $('panel-drops').classList.toggle('on',tab==='drops');
+  document.body.classList.toggle('lb-mode',tab==='drops');
+  if(tab==='drops' && window.lbOnShow) window.lbOnShow();
   if(tab==='map'&&map){
     setTimeout(()=>map.invalidateSize(true),50);
     setTimeout(()=>map.invalidateSize(true),250);
@@ -914,6 +1054,7 @@ function switchSub(name){
   sub=name;
   document.querySelectorAll('[data-suburb]').forEach(b=>b.classList.toggle('on',b.dataset.suburb===name));
   map.setView(SUBURBS[name].c,SUBURBS[name].z);
+  if(window.lbSetView) window.lbSetView(SUBURBS[name]);
   renderSecs(); renderSecPills(); renderMarkers();
   bLvl='sections'; bSec=null; bStr=null; bQ=''; bOE='all';
   $('bfin').value=''; $('bfix').style.display='none';
@@ -2831,6 +2972,8 @@ async function initFB(){
       Object.keys(ann).forEach(k=>saveAnn(k));
       _annDirtyBeforeReady=false;
     }
+    // Letterbox drops — separate collection, wired before the save queue flushes
+    try{ if(window.initLetterboxFB) await window.initLetterboxFB(db); }catch(e){ console.warn('letterbox init failed',e); }
     window._fbReady=true;
     flushPreReadyQueue();
 
@@ -3421,6 +3564,7 @@ function restoreViewState(){
     if(v.statusFilter) setStatusFilter(v.statusFilter);
     if(v.center && v.zoom!=null) map.setView(v.center,v.zoom,{animate:false});
     if(v.mainTab==='browser') switchMain('browser');
+    if(v.mainTab==='drops') switchMain('drops');
     if(v.bTab==='search'){
       // same as switchBTab('search') but without auto-focusing (avoids popping the keyboard)
       bTab='search';
@@ -3515,5 +3659,637 @@ updateOnlineStatus();
 initFB();
 renderBrowser();
 </script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// LETTERBOX DROPS
+// Completely separate data from door knocks: lives in its own Firestore
+// collection ("letterbox_drops"), its own map, its own list. Nothing here
+// reads or writes door_knocks.
+//
+// Flow: upload a walk (GPX/KML/TCX file from MapMyWalk etc., or a
+// screenshot of the route) → route points → matched against named streets
+// from OpenStreetMap (Overpass API) → review list of detected streets with
+// the date → saved as one "drop" doc. The map overlays every drop, each
+// covered street piece coloured by how recently it was done, labelled with
+// the date it was completed.
+// ═══════════════════════════════════════════════════════════════
+(function(){
+const LB_COL='letterbox_drops';
+const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+const SNAP_TOL_M=25;          // max distance from street centreline to count a point
+const MERGE_GAP_M=40;         // join covered pieces of a street separated by less than this
+const MIN_PIECE_M=25;         // ignore covered pieces shorter than this (crossings at intersections)
+const RECENCY=[{d:7,c:'#16a34a'},{d:30,c:'#f59e0b'},{d:90,c:'#ea580c'},{d:Infinity,c:'#9ca3af'}];
+const FILTERS=[{k:'all',l:'All'},{k:7,l:'Last 7 days'},{k:30,l:'Last 30 days'},{k:90,l:'Last 90 days'}];
+
+let lbMap=null, lbLayer=null, lbPreviewLayer=null;
+let lbDrops={};              // id -> doc (with parsed .geo)
+let lbFilter='all', lbView='streets', lbSel=null;
+let lbFb=null;               // {save(id,doc), del(id), patch(id,fields)}
+let lbPending=null;          // result awaiting review/save
+let lbAlignState=null;       // {img, redPx:[[x,y]...], natW, natH}
+
+// ─── small helpers ────────────────────────────────────────────
+const pad2=n=>String(n).padStart(2,'0');
+const isoDate=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+const todayIso=()=>isoDate(new Date());
+function daysAgo(iso){
+  const [y,m,d]=iso.split('-').map(Number);
+  const t=new Date(); const a=new Date(t.getFullYear(),t.getMonth(),t.getDate());
+  return Math.round((a-new Date(y,m-1,d))/86400000);
+}
+function fmtDate(iso,long){
+  const [y,m,d]=iso.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  return dt.toLocaleDateString('en-AU',long?{weekday:'short',day:'numeric',month:'short',year:'numeric'}:{day:'numeric',month:'short'});
+}
+function recencyColor(iso){ const a=daysAgo(iso); return (RECENCY.find(r=>a<=r.d)||RECENCY[3]).c; }
+function fmtLen(m){ return m>=1000 ? (m/1000).toFixed(1)+' km' : Math.round(m)+' m'; }
+function titleCase(s){ return (s||'').replace(/\b\w/g,c=>c.toUpperCase()); }
+function busy(msg){ const b=$('lbBusy'); if(msg){ b.textContent=msg; b.classList.add('on'); } else b.classList.remove('on'); }
+
+// ─── MAP ──────────────────────────────────────────────────────
+function initLbMap(){
+  if(lbMap) return;
+  const s=SUBURBS[sub]||SUBURBS.highett;
+  lbMap=L.map('lbMap',{zoomControl:true,attributionControl:false,preferCanvas:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:21}).addTo(lbMap);
+  lbMap.setView(s.c,s.z);
+  window.__lbMapRef=lbMap;
+  lbLayer=L.layerGroup().addTo(lbMap);
+  lbPreviewLayer=L.layerGroup().addTo(lbMap);
+  const upd=()=>lbMap.getContainer().classList.toggle('lb-hide-labels', lbMap.getZoom()<16);
+  lbMap.on('zoomend',upd); upd();
+  renderLb();
+}
+window.lbOnShow=function(){
+  initLbMap();
+  setTimeout(()=>lbMap.invalidateSize(true),50);
+  setTimeout(()=>lbMap.invalidateSize(true),260);
+  renderLb();
+};
+window.lbSetView=function(s){ if(lbMap && s && !lbAlignState) lbMap.setView(s.c,s.z); };
+
+// Drops visible under the current filter / single-drop selection
+function visibleDrops(){
+  let arr=Object.entries(lbDrops).map(([id,d])=>({id,...d})).filter(d=>d.date && d.geo);
+  if(lbSel) return arr.filter(d=>d.id===lbSel);
+  if(lbFilter!=='all') arr=arr.filter(d=>daysAgo(d.date)<=lbFilter);
+  return arr;
+}
+// street key -> {n,s,dates:[{date,id,len}],last}
+function aggregateStreets(drops){
+  const agg={};
+  drops.forEach(d=>(d.geo.streets||[]).forEach(st=>{
+    const k=(st.n+'|'+(st.s||'')).toUpperCase();
+    const a=agg[k]||(agg[k]={k,n:st.n,s:st.s||'',dates:[],last:'',len:0});
+    a.dates.push({date:d.date,id:d.id,len:st.len});
+    if(d.date>a.last) a.last=d.date;
+    a.len=Math.max(a.len,st.len||0);
+  }));
+  Object.values(agg).forEach(a=>a.dates.sort((x,y)=>y.date.localeCompare(x.date)));
+  return agg;
+}
+
+function renderLb(){
+  renderLbChips();
+  if(!lbMap) { renderLbList(); return; }
+  lbLayer.clearLayers();
+  const drops=visibleDrops().sort((a,b)=>a.date.localeCompare(b.date)); // newest drawn last = on top
+  const agg=aggregateStreets(drops);
+  // faint raw route (as uploaded) underneath
+  drops.forEach(d=>{
+    if(d.geo.route && d.geo.route.length>1)
+      L.polyline(d.geo.route,{color:lbSel?'#1d3fbb':'#111',weight:2,opacity:.35,dashArray:'4,5',interactive:false}).addTo(lbLayer);
+  });
+  // covered street pieces
+  const labelFor={}; // street key -> {pt,len,date,color}
+  drops.forEach(d=>{
+    const col=lbSel?'#1d3fbb':recencyColor(d.date);
+    (d.geo.streets||[]).forEach(st=>{
+      const k=(st.n+'|'+(st.s||'')).toUpperCase();
+      (st.segs||[]).forEach(seg=>{
+        if(seg.length<2) return;
+        const pl=L.polyline(seg,{color:col,weight:7,opacity:.85,lineCap:'round'}).addTo(lbLayer);
+        pl.on('click',()=>openStreetPopup(agg[k], pl.getCenter()));
+        const len=segLen(seg);
+        const cur=labelFor[k];
+        if(!cur || d.date>cur.date || (d.date===cur.date && len>cur.len))
+          labelFor[k]={pt:seg[Math.floor(seg.length/2)],len,date:d.date,color:col};
+      });
+    });
+  });
+  Object.entries(labelFor).forEach(([k,l])=>{
+    L.marker(l.pt,{interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],
+      html:'<span class="lb-dlbl" style="border-color:'+l.color+'">'+fmtDate(l.date)+'</span>'})}).addTo(lbLayer);
+  });
+  $('lbLegend').style.display=lbSel?'none':'';
+  renderLbList(agg, drops);
+}
+function segLen(seg){ let s=0; for(let i=1;i<seg.length;i++) s+=distM(seg[i-1],seg[i]); return s; }
+function distM(a,b){
+  const R=6371000, toR=Math.PI/180;
+  const dLat=(b[0]-a[0])*toR, dLng=(b[1]-a[1])*toR;
+  const x=dLng*Math.cos((a[0]+b[0])/2*toR);
+  return Math.sqrt(x*x+dLat*dLat)*R;
+}
+function openStreetPopup(a, at){
+  if(!a) return;
+  const html='<div style="font-family:var(--f);min-width:170px"><div style="font-weight:800;font-size:14px">'+esc(titleCase(a.n))+'</div>'+
+    '<div style="font-size:11px;color:#888;margin-bottom:6px">'+esc(titleCase(a.s.toLowerCase()))+'</div>'+
+    a.dates.map((d,i)=>'<div style="font-size:12px;'+(i===0?'font-weight:800':'color:#666')+'">'+(i===0?'✅ Completed ':'Also ')+fmtDate(d.date,true)+'</div>').join('')+
+    '</div>';
+  L.popup().setLatLng(at).setContent(html).openOn(lbMap);
+}
+
+function renderLbChips(){
+  const row=$('lbChips'); if(!row) return;
+  row.innerHTML=FILTERS.map(f=>'<button class="sec'+(lbFilter===f.k&&!lbSel?' on':'')+'" data-lbf="'+f.k+'">'+f.l+'</button>').join('');
+  row.querySelectorAll('[data-lbf]').forEach(b=>b.onclick=()=>{
+    const v=b.dataset.lbf; lbFilter=v==='all'?'all':Number(v); lbSel=null; renderLb();
+  });
+  const pill=$('lbSelPill');
+  if(lbSel && lbDrops[lbSel]){
+    pill.innerHTML='Only '+fmtDate(lbDrops[lbSel].date)+' ✕';
+    pill.classList.add('on');
+    pill.onclick=()=>{ lbSel=null; renderLb(); };
+  } else pill.classList.remove('on');
+}
+
+function renderLbList(agg, drops){
+  const body=$('lbBody'); if(!body) return;
+  agg=agg||aggregateStreets(visibleDrops()); drops=drops||visibleDrops();
+  let h='';
+  if(lbView==='streets'){
+    const rows=Object.values(agg).sort((a,b)=>b.last.localeCompare(a.last)||a.n.localeCompare(b.n));
+    if(!rows.length) h=emptyState();
+    rows.forEach(a=>{
+      const col=recencyColor(a.last);
+      h+='<div class="lb-row" data-street="'+esc(a.k)+'">'+
+        '<span class="lb-sw" style="background:'+col+'"></span>'+
+        '<div class="lb-main"><div class="lb-t">'+esc(titleCase(a.n))+'</div>'+
+        '<div class="lb-s">'+esc(titleCase(a.s.toLowerCase()))+(a.dates.length>1?' · '+a.dates.length+' drops':'')+'</div></div>'+
+        '<div class="lb-r">'+fmtDate(a.last)+'<div class="lb-s" style="font-weight:600">'+(daysAgo(a.last)===0?'today':daysAgo(a.last)+'d ago')+'</div></div>'+
+      '</div>';
+    });
+  } else {
+    const all=Object.entries(lbDrops).map(([id,d])=>({id,...d})).filter(d=>d.date).sort((a,b)=>b.date.localeCompare(a.date)||(b.createdAt||'').localeCompare(a.createdAt||''));
+    if(!all.length) h=emptyState();
+    all.forEach(d=>{
+      const n=(d.geo&&d.geo.streets||[]).length;
+      h+='<div class="lb-row" data-drop="'+esc(d.id)+'" style="'+(lbSel===d.id?'background:var(--bg)':'')+'">'+
+        '<span class="lb-sw" style="background:'+recencyColor(d.date)+'"></span>'+
+        '<div class="lb-main"><div class="lb-t">'+fmtDate(d.date,true)+'</div>'+
+        '<div class="lb-s">'+n+' street'+(n===1?'':'s')+(d.distanceM?' · '+fmtLen(d.distanceM):'')+' · '+(d.source==='screenshot'?'📷 screenshot':'📍 GPS file')+'</div></div>'+
+        '<div class="lb-act">'+
+          '<input type="date" value="'+esc(d.date)+'" data-dropdate="'+esc(d.id)+'" title="Change date">'+
+          '<button class="lb-ibtn" data-dropdel="'+esc(d.id)+'" title="Delete" style="color:#dc2626">🗑</button>'+
+        '</div></div>';
+    });
+  }
+  body.innerHTML=h;
+  body.querySelectorAll('[data-street]').forEach(r=>r.onclick=()=>zoomToStreet(r.dataset.street));
+  body.querySelectorAll('[data-drop]').forEach(r=>r.onclick=e=>{
+    if(e.target.closest('.lb-act')) return;
+    const id=r.dataset.drop; lbSel=(lbSel===id)?null:id; renderLb();
+    if(lbSel) zoomToDrop(id);
+  });
+  body.querySelectorAll('[data-dropdate]').forEach(i=>i.onchange=()=>changeDropDate(i.dataset.dropdate,i.value));
+  body.querySelectorAll('[data-dropdel]').forEach(b=>b.onclick=()=>deleteDrop(b.dataset.dropdel));
+}
+function emptyState(){
+  return '<div class="es"><div class="es-i">📬</div><div class="es-t">No letterbox drops '+(lbFilter==='all'?'yet':'in this period')+'</div>'+
+    '<div class="es-s">Tap <b>＋ Upload walk</b> and choose a GPX file<br>or a screenshot of your walk route.</div></div>';
+}
+function boundsOfSegs(list){
+  const b=L.latLngBounds([]);
+  list.forEach(seg=>seg.forEach(p=>b.extend(p)));
+  return b;
+}
+function zoomToStreet(k){
+  const segs=[];
+  visibleDrops().forEach(d=>(d.geo.streets||[]).forEach(st=>{ if((st.n+'|'+(st.s||'')).toUpperCase()===k) segs.push(...st.segs); }));
+  const b=boundsOfSegs(segs); if(b.isValid()) lbMap.fitBounds(b,{padding:[50,50],maxZoom:18});
+  const agg=aggregateStreets(visibleDrops());
+  if(b.isValid()) openStreetPopup(agg[k], b.getCenter());
+}
+function zoomToDrop(id){
+  const d=lbDrops[id]; if(!d||!d.geo) return;
+  const segs=[]; (d.geo.streets||[]).forEach(st=>segs.push(...st.segs)); if(d.geo.route) segs.push(d.geo.route);
+  const b=boundsOfSegs(segs); if(b.isValid()) lbMap.fitBounds(b,{padding:[40,40],maxZoom:18});
+}
+
+// ─── FIRESTORE (separate collection) ──────────────────────────
+function showPerm(msg){ const p=$('lbPerm'); if(!p) return; p.textContent=msg||''; p.classList.toggle('on',!!msg); }
+function onWriteErr(e){
+  console.warn('letterbox write failed',e);
+  if(e && e.code==='permission-denied') showPerm('⚠️ Letterbox drops can\'t be saved yet — the Firestore rules need to allow the "letterbox_drops" collection.');
+  else toast('⚠️ Not saved — check connection and try again');
+}
+function applyLbDocs(docs){
+  const next={};
+  docs.forEach(d=>{
+    const v=d.data(); if(!v || !v._lbDrop) return;
+    let geo=null; try{ geo=JSON.parse(v.data||'{}'); }catch(e){ console.warn('bad drop geo',d.id); }
+    next[d.id]={...v,geo};
+  });
+  lbDrops=next;
+  if(lbSel && !lbDrops[lbSel]) lbSel=null;
+  renderLb();
+}
+window.initLetterboxFB=async function(db){
+  const{collection,doc,setDoc,deleteDoc,onSnapshot,getDocs}=await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  lbFb={
+    save:(id,v)=>trackWrite(setDoc(doc(db,LB_COL,id),v)),
+    patch:(id,v)=>trackWrite(setDoc(doc(db,LB_COL,id),v,{merge:true})),
+    del:(id)=>trackWrite(deleteDoc(doc(db,LB_COL,id)))
+  };
+  const fetchOnce=async()=>{
+    try{ applyLbDocs((await getDocs(collection(db,LB_COL))).docs); return true; }
+    catch(e){ if(e&&e.code==='permission-denied') showPerm('⚠️ Letterbox drops can\'t be loaded — the Firestore rules need to allow the "letterbox_drops" collection.'); return false; }
+  };
+  fetchOnce();
+  onSnapshot(collection(db,LB_COL),snap=>{ showPerm(''); applyLbDocs(snap.docs); },err=>{
+    console.warn('letterbox live listener failed — polling',err);
+    if(err&&err.code==='permission-denied'){ showPerm('⚠️ Letterbox drops can\'t be loaded — the Firestore rules need to allow the "letterbox_drops" collection.'); return; }
+    if(!window._lbPoll) window._lbPoll=setInterval(fetchOnce,20000);
+  });
+};
+function changeDropDate(id,date){
+  if(!date||!lbDrops[id]) return;
+  lbDrops[id].date=date; renderLb();
+  deferUntilReady(()=>lbFb.patch(id,{date}).catch(onWriteErr));
+  toast('📅 Date updated to '+fmtDate(date,true));
+}
+function deleteDrop(id){
+  const d=lbDrops[id]; if(!d) return;
+  if(!confirm('Delete the letterbox drop from '+fmtDate(d.date,true)+'?')) return;
+  delete lbDrops[id]; if(lbSel===id) lbSel=null; renderLb();
+  deferUntilReady(()=>lbFb.del(id).catch(onWriteErr));
+  toast('Drop deleted');
+}
+
+// ─── UPLOAD ───────────────────────────────────────────────────
+function onFilePicked(file){
+  if(!file) return;
+  const name=file.name||'';
+  if(/^image\//.test(file.type) || /\.(png|jpe?g|heic|webp)$/i.test(name)) return startScreenshot(file);
+  const rd=new FileReader();
+  rd.onload=async()=>{
+    let pts;
+    try{ pts=parseTrackFile(String(rd.result)); }catch(e){ pts=[]; }
+    if(pts.length<2){ toast('⚠️ No route found in that file'); return; }
+    const t=pts.find(p=>p.t);
+    const date=t?isoDate(new Date(t.t)):(file.lastModified?isoDate(new Date(file.lastModified)):todayIso());
+    await runMatching(pts,{ordered:true,source:'gpx',label:name,date});
+  };
+  rd.readAsText(file);
+}
+function parseTrackFile(text){
+  const xml=new DOMParser().parseFromString(text,'application/xml');
+  const by=(n,tag)=>n.getElementsByTagName(tag);
+  const pts=[];
+  // GPX
+  [...by(xml,'trkpt'),...by(xml,'rtept')].forEach(n=>{
+    const la=parseFloat(n.getAttribute('lat')), lo=parseFloat(n.getAttribute('lon'));
+    const t=by(n,'time')[0];
+    if(isFinite(la)&&isFinite(lo)) pts.push({lat:la,lng:lo,t:t?t.textContent.trim():null});
+  });
+  // TCX
+  if(!pts.length) [...by(xml,'Trackpoint')].forEach(n=>{
+    const la=by(n,'LatitudeDegrees')[0], lo=by(n,'LongitudeDegrees')[0], t=by(n,'Time')[0];
+    if(la&&lo) pts.push({lat:parseFloat(la.textContent),lng:parseFloat(lo.textContent),t:t?t.textContent.trim():null});
+  });
+  // KML (gx:Track then LineString coordinates)
+  if(!pts.length){
+    const whens=[...xml.getElementsByTagNameNS('*','when')].map(w=>w.textContent.trim());
+    [...xml.getElementsByTagNameNS('*','coord')].forEach((n,i)=>{
+      const [lo,la]=n.textContent.trim().split(/\s+/).map(Number);
+      if(isFinite(la)&&isFinite(lo)) pts.push({lat:la,lng:lo,t:whens[i]||null});
+    });
+  }
+  if(!pts.length) [...xml.getElementsByTagNameNS('*','coordinates')].forEach(n=>{
+    n.textContent.trim().split(/\s+/).forEach(c=>{
+      const [lo,la]=c.split(',').map(Number);
+      if(isFinite(la)&&isFinite(lo)) pts.push({lat:la,lng:lo,t:null});
+    });
+  });
+  if(pts.length && !pts.some(p=>p.t)){
+    const mt=by(xml,'time')[0]||by(xml,'when')[0]; // GPX metadata / KML timestamp
+    if(mt) pts[0].t=mt.textContent.trim();
+  }
+  return pts.filter(p=>Math.abs(p.lat)>0.0001&&Math.abs(p.lng)>0.0001);
+}
+
+// ─── SCREENSHOT → ROUTE PIXELS → ALIGN ON MAP ─────────────────
+function startScreenshot(file){
+  const url=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{
+    const MAXD=1600, k=Math.min(1,MAXD/Math.max(img.naturalWidth,img.naturalHeight));
+    const w=Math.round(img.naturalWidth*k), h=Math.round(img.naturalHeight*k);
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+    const ctx=cv.getContext('2d',{willReadFrequently:true}); ctx.drawImage(img,0,0,w,h);
+    const data=ctx.getImageData(0,0,w,h).data;
+    const red=[]; const step=w>700?2:1;
+    for(let y=0;y<h;y+=step) for(let x=0;x<w;x+=step){
+      const i=(y*w+x)*4, r=data[i], g=data[i+1], b=data[i+2];
+      if(r>170 && g<95 && b<115 && r-g>110 && r-b>90) red.push([x,y]);
+    }
+    if(red.length<15){ URL.revokeObjectURL(url); toast('⚠️ Couldn\'t find a red route line in that screenshot'); return; }
+    lbAlignState={url,redPx:red,w,h,date:file.lastModified?isoDate(new Date(file.lastModified)):todayIso(),label:file.name||'screenshot'};
+    openAlign();
+  };
+  img.onerror=()=>{ URL.revokeObjectURL(url); toast('⚠️ Couldn\'t open that image (try PNG or JPG)'); };
+  img.src=url;
+}
+function layoutAlignImg(){
+  if(!lbAlignState) return;
+  const wrap=$('lbAlign'), im=$('lbAlignImg');
+  const W=wrap.clientWidth;
+  // fit into the clear band between the instruction card and the buttons
+  const top=wrap.querySelector('.lb-align-top').offsetHeight+16;
+  const bot=wrap.clientHeight-(wrap.querySelector('.lb-align-bot').offsetHeight+18);
+  const H=Math.max(120,bot-top);
+  const base=Math.min((W-16)/lbAlignState.w, H/lbAlignState.h);
+  const k=base*(Number($('lbScale').value)/100);
+  const w=lbAlignState.w*k, h=lbAlignState.h*k;
+  im.style.width=w+'px'; im.style.height=h+'px';
+  im.style.left=((W-w)/2)+'px'; im.style.top=(top+(H-h)/2)+'px';
+  im.style.opacity=Number($('lbOpacity').value)/100;
+}
+function openAlign(){
+  initLbMap();
+  lbSel=null; lbFilter='all';
+  lbLayer.clearLayers(); lbPreviewLayer.clearLayers();
+  $('lbAlignImg').src=lbAlignState.url;
+  $('lbScale').value=100; $('lbOpacity').value=50;
+  $('lbAlign').classList.add('on');
+  $('panel-drops').classList.add('lb-aligning');
+  $('lbList').classList.add('min');
+  lbMap.options.zoomSnap=0; lbMap.options.zoomDelta=0.25; lbMap.options.wheelPxPerZoomLevel=140;
+  lbMap.closePopup();
+  setTimeout(()=>{ lbMap.invalidateSize(true); layoutAlignImg(); },230);
+}
+function closeAlign(){
+  $('lbAlign').classList.remove('on');
+  $('panel-drops').classList.remove('lb-aligning');
+  $('lbList').classList.remove('min');
+  if(lbMap){ lbMap.options.zoomSnap=1; lbMap.options.zoomDelta=1; lbMap.options.wheelPxPerZoomLevel=60; setTimeout(()=>lbMap.invalidateSize(true),230); }
+  if(lbAlignState) URL.revokeObjectURL(lbAlignState.url);
+  lbAlignState=null;
+  renderLb();
+}
+async function finishAlign(){
+  const st=lbAlignState; if(!st) return;
+  const im=$('lbAlignImg').getBoundingClientRect(), mc=lbMap.getContainer().getBoundingClientRect();
+  const kx=im.width/st.w, ky=im.height/st.h;
+  const pts=st.redPx.map(([x,y])=>{
+    const ll=lbMap.containerPointToLatLng(L.point(im.left-mc.left+x*kx, im.top-mc.top+y*ky));
+    return {lat:ll.lat,lng:ll.lng};
+  });
+  const meta={ordered:false,source:'screenshot',label:st.label,date:st.date};
+  closeAlign();
+  await runMatching(pts,meta);
+}
+async function findPlace(){
+  const q=($('lbFindIn').value||'').trim(); if(!q) return;
+  try{
+    const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=au&q='+encodeURIComponent(q+', Victoria'));
+    const d=await r.json();
+    if(d&&d[0]) lbMap.setView([+d[0].lat,+d[0].lon],17);
+    else toast('Not found — try adding the suburb');
+  }catch(e){ toast('⚠️ Search failed — check connection'); }
+}
+
+// ─── MATCH ROUTE POINTS → STREETS ─────────────────────────────
+async function fetchOverpass(s,w,n,e){
+  const bb=s+','+w+','+n+','+e;
+  const q='[out:json][timeout:25];('+
+    'way["highway"]["name"]["highway"!~"^(footway|path|cycleway|steps|bridleway|motorway|motorway_link|construction|proposed|platform|corridor)$"]('+bb+');'+
+    'relation["boundary"="administrative"]["admin_level"="10"]('+bb+');'+
+    ');out geom;';
+  let lastErr;
+  for(const url of OVERPASS){
+    try{
+      const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),30000);
+      const r=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal});
+      clearTimeout(to);
+      if(!r.ok) throw new Error('Overpass HTTP '+r.status);
+      return await r.json();
+    }catch(err){ lastErr=err; console.warn('Overpass failed at',url,err); }
+  }
+  throw lastErr||new Error('Overpass unavailable');
+}
+
+// Pure matching step (no network) — exposed for testing.
+function matchStreets(pts, osm, opts){
+  opts=opts||{};
+  const tol=opts.tol||SNAP_TOL_M;
+  const lat0=pts.reduce((s,p)=>s+p.lat,0)/pts.length, lng0=pts.reduce((s,p)=>s+p.lng,0)/pts.length;
+  const KX=Math.cos(lat0*Math.PI/180)*111320, KY=110540;
+  const P=(lat,lng)=>[(lng-lng0)*KX,(lat-lat0)*KY];
+
+  // route points (densified if ordered; deduped on a ~3m grid otherwise)
+  let route=pts.map(p=>P(p.lat,p.lng));
+  let distanceM=0;
+  if(opts.ordered){
+    const dense=[route[0]];
+    for(let i=1;i<route.length;i++){
+      const a=route[i-1], b=route[i], d=Math.hypot(b[0]-a[0],b[1]-a[1]);
+      if(d<250) distanceM+=d;
+      if(d>5 && d<250){ const n=Math.ceil(d/5); for(let j=1;j<n;j++) dense.push([a[0]+(b[0]-a[0])*j/n, a[1]+(b[1]-a[1])*j/n]); }
+      dense.push(b);
+    }
+    route=dense;
+  } else {
+    const seen=new Set(); route=route.filter(p=>{ const k=Math.round(p[0]/3)+'_'+Math.round(p[1]/3); if(seen.has(k)) return false; seen.add(k); return true; });
+  }
+
+  // ways + spatial grid of their segments
+  const CELL=50, grid=new Map();
+  const ways=[], suburbs=[];
+  (osm.elements||[]).forEach(el=>{
+    if(el.type==='way' && el.geometry && el.tags && el.tags.name){
+      const xy=el.geometry.map(g=>P(g.lat,g.lon));
+      const cum=[0]; for(let i=1;i<xy.length;i++) cum.push(cum[i-1]+Math.hypot(xy[i][0]-xy[i-1][0],xy[i][1]-xy[i-1][1]));
+      const wi=ways.length; ways.push({name:el.tags.name,geo:el.geometry,xy,cum,hits:[]});
+      for(let i=1;i<xy.length;i++){
+        const a=xy[i-1], b=xy[i];
+        const x0=Math.floor((Math.min(a[0],b[0])-tol)/CELL), x1=Math.floor((Math.max(a[0],b[0])+tol)/CELL);
+        const y0=Math.floor((Math.min(a[1],b[1])-tol)/CELL), y1=Math.floor((Math.max(a[1],b[1])+tol)/CELL);
+        for(let gx=x0;gx<=x1;gx++) for(let gy=y0;gy<=y1;gy++){
+          const k=gx+'_'+gy; let c=grid.get(k); if(!c) grid.set(k,c=[]); c.push([wi,i]);
+        }
+      }
+    } else if(el.type==='relation' && el.tags && el.tags.name && el.members){
+      const edges=[];
+      el.members.forEach(m=>{ if(m.geometry) for(let i=1;i<m.geometry.length;i++){
+        const a=m.geometry[i-1], b=m.geometry[i]; if(a&&b) edges.push([P(a.lat,a.lon),P(b.lat,b.lon)]); } });
+      if(edges.length) suburbs.push({name:el.tags.name,edges});
+    }
+  });
+
+  // snap each route point to its nearest street segment
+  route.forEach(p=>{
+    const c=grid.get(Math.floor(p[0]/CELL)+'_'+Math.floor(p[1]/CELL)); if(!c) return;
+    let best=null;
+    c.forEach(([wi,i])=>{
+      const w=ways[wi], a=w.xy[i-1], b=w.xy[i];
+      const dx=b[0]-a[0], dy=b[1]-a[1], L2=dx*dx+dy*dy;
+      let t=L2?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L2:0; t=Math.max(0,Math.min(1,t));
+      const d=Math.hypot(a[0]+dx*t-p[0], a[1]+dy*t-p[1]);
+      if(d<=tol && (!best||d<best.d)) best={d,wi,along:w.cum[i-1]+Math.sqrt(L2)*t};
+    });
+    if(best) ways[best.wi].hits.push(best.along);
+  });
+
+  const unP=(x,y)=>[+(lat0+y/KY).toFixed(6), +(lng0+x/KX).toFixed(6)];
+  function slice(w,a,b){
+    const out=[]; const xy=w.xy, cum=w.cum;
+    const at=s=>{ let i=1; while(i<cum.length-1 && cum[i]<s) i++; const seg=cum[i]-cum[i-1]||1, t=(s-cum[i-1])/seg;
+      return [xy[i-1][0]+(xy[i][0]-xy[i-1][0])*t, xy[i-1][1]+(xy[i][1]-xy[i-1][1])*t]; };
+    out.push(unP(...at(a)));
+    for(let i=0;i<cum.length;i++) if(cum[i]>a && cum[i]<b) out.push(unP(...xy[i]));
+    out.push(unP(...at(b)));
+    return out;
+  }
+  function suburbOf(x,y){
+    for(const s of suburbs){
+      let inside=false;
+      for(const [a,b] of s.edges){
+        if((a[1]>y)!==(b[1]>y) && x < (b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0]) inside=!inside;
+      }
+      if(inside) return s.name;
+    }
+    return '';
+  }
+
+  // hits → covered intervals → grouped by street name + suburb
+  const out={};
+  ways.forEach(w=>{
+    if(!w.hits.length) return;
+    const total=w.cum[w.cum.length-1];
+    const h=w.hits.sort((a,b)=>a-b);
+    const iv=[]; let s=h[0], e=h[0];
+    for(let i=1;i<h.length;i++){ if(h[i]-e<=MERGE_GAP_M) e=h[i]; else { iv.push([s,e]); s=e=h[i]; } }
+    iv.push([s,e]);
+    iv.forEach(([a,b])=>{
+      a=Math.max(0,a-5); b=Math.min(total,b+5);
+      if(b-a<MIN_PIECE_M) return;
+      const seg=slice(w,a,b);
+      const mid=seg[Math.floor(seg.length/2)], mp=P(mid[0],mid[1]);
+      const sub=suburbOf(mp[0],mp[1]);
+      const k=(w.name+'|'+sub).toUpperCase();
+      const st=out[k]||(out[k]={n:w.name,s:sub,len:0,segs:[]});
+      st.len+=b-a; st.segs.push(seg);
+    });
+  });
+  const streets=Object.values(out).map(s=>({...s,len:Math.round(s.len)})).sort((a,b)=>b.len-a.len);
+
+  // keep a light copy of the raw route for drawing (ordered uploads only)
+  let rawRoute=null;
+  if(opts.ordered){
+    const step=Math.max(1,Math.ceil(pts.length/1500));
+    rawRoute=pts.filter((_,i)=>i%step===0||i===pts.length-1).map(p=>[+p.lat.toFixed(6),+p.lng.toFixed(6)]);
+  } else distanceM=streets.reduce((s,x)=>s+x.len,0);
+  return {streets,route:rawRoute,distanceM:Math.round(distanceM)};
+}
+window._lbMatchStreets=matchStreets; // for testing
+
+async function runMatching(pts, meta){
+  initLbMap();
+  let s=90,w=180,n=-90,e=-180;
+  pts.forEach(p=>{ s=Math.min(s,p.lat); n=Math.max(n,p.lat); w=Math.min(w,p.lng); e=Math.max(e,p.lng); });
+  if((n-s)>0.25 || (e-w)>0.25){ toast('⚠️ That route covers too large an area — check the screenshot alignment'); return; }
+  const pad=0.0012;
+  busy('Reading streets…');
+  let osm;
+  try{ osm=await fetchOverpass(s-pad,w-pad,n+pad,e+pad); }
+  catch(err){ busy(''); toast('⚠️ Couldn\'t load street data — check connection and try again'); return; }
+  const res=matchStreets(pts,osm,{ordered:meta.ordered});
+  busy('');
+  if(!res.streets.length){ toast('⚠️ No streets matched — '+(meta.ordered?'is this the right file?':'try lining the screenshot up again')); return; }
+  lbPending={...meta,...res};
+  openReview();
+}
+
+// ─── REVIEW + SAVE ────────────────────────────────────────────
+function drawPreview(){
+  lbPreviewLayer.clearLayers();
+  if(!lbPending) return;
+  const segs=[];
+  if(lbPending.route) L.polyline(lbPending.route,{color:'#111',weight:2,opacity:.45,dashArray:'4,5'}).addTo(lbPreviewLayer);
+  lbPending.streets.forEach((st,i)=>{
+    const on=!st.off;
+    st.segs.forEach(seg=>{ segs.push(seg); L.polyline(seg,{color:on?'#1d3fbb':'#9ca3af',weight:on?8:5,opacity:on?.9:.5,dashArray:on?null:'6,6'}).addTo(lbPreviewLayer); });
+  });
+  const b=boundsOfSegs(segs); if(b.isValid()) lbMap.fitBounds(b,{padding:[40,40],maxZoom:18});
+}
+function openReview(){
+  const p=lbPending;
+  lbLayer.clearLayers();
+  $('lbRvDate').value=p.date||todayIso();
+  $('lbRvSub').textContent=(p.source==='screenshot'?'📷 From screenshot':'📍 From GPS file')+' · '+p.streets.length+' street'+(p.streets.length===1?'':'s')+' detected — untick any that weren\'t done';
+  $('lbRvList').innerHTML=p.streets.map((st,i)=>
+    '<label class="lb-rv-row"><input type="checkbox" checked data-rv="'+i+'">'+
+    '<div class="m"><div>'+esc(titleCase(st.n))+'</div><div>'+esc(titleCase((st.s||'').toLowerCase()))+(st.s?' · ':'')+fmtLen(st.len)+'</div></div></label>').join('');
+  $('lbRvList').querySelectorAll('[data-rv]').forEach(c=>c.onchange=()=>{ p.streets[+c.dataset.rv].off=!c.checked; drawPreview(); });
+  $('lbOv').classList.add('on'); $('lbSheet').classList.add('on');
+  drawPreview();
+}
+function closeReview(){
+  $('lbOv').classList.remove('on'); $('lbSheet').classList.remove('on');
+  lbPending=null; if(lbPreviewLayer) lbPreviewLayer.clearLayers();
+  renderLb();
+}
+function saveReview(){
+  const p=lbPending; if(!p) return;
+  const date=$('lbRvDate').value;
+  if(!date){ toast('Pick the date it was done'); return; }
+  const streets=p.streets.filter(s=>!s.off).map(({n,s,len,segs})=>({n,s,len,segs}));
+  if(!streets.length){ toast('Tick at least one street'); return; }
+  const geo={streets,route:p.route||null};
+  const id='drop_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+  const doc={_lbDrop:true,date,source:p.source,label:(p.label||'').slice(0,120),
+    distanceM:p.ordered?p.distanceM:streets.reduce((s,x)=>s+x.len,0),
+    streetCount:streets.length,streetNames:streets.map(s=>s.n),
+    createdAt:new Date().toISOString(),data:JSON.stringify(geo)};
+  lbDrops[id]={...doc,geo}; // show immediately; the live listener confirms it
+  deferUntilReady(()=>{ if(lbFb) lbFb.save(id,doc).catch(onWriteErr); });
+  lbFilter='all'; lbSel=null; lbView='streets';
+  document.querySelectorAll('[data-lbv]').forEach(b=>b.classList.toggle('on',b.dataset.lbv==='streets'));
+  closeReview();
+  toast('✅ Saved — '+streets.length+' street'+(streets.length===1?'':'s')+' on '+fmtDate(date,true));
+}
+
+// ─── WIRING ───────────────────────────────────────────────────
+$('lbUploadBtn').onclick=()=>{ $('lbFile').value=''; $('lbFile').click(); };
+$('lbFile').onchange=e=>onFilePicked(e.target.files&&e.target.files[0]);
+$('lbAlignCancel').onclick=closeAlign;
+$('lbAlignDone').onclick=finishAlign;
+$('lbScale').oninput=layoutAlignImg;
+$('lbOpacity').oninput=layoutAlignImg;
+$('lbFindBtn').onclick=findPlace;
+$('lbFindIn').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); findPlace(); } });
+window.addEventListener('resize',()=>{ if(lbAlignState) layoutAlignImg(); });
+$('lbRvSave').onclick=saveReview;
+$('lbRvCancel').onclick=closeReview;
+$('lbOv').onclick=closeReview;
+$('lbMinBtn').onclick=()=>{
+  const m=$('lbList').classList.toggle('min'); $('lbMinBtn').textContent=m?'▴':'▾';
+  if(lbMap) setTimeout(()=>lbMap.invalidateSize(true),230);
+};
+document.querySelectorAll('[data-lbv]').forEach(b=>b.onclick=()=>{
+  lbView=b.dataset.lbv;
+  document.querySelectorAll('[data-lbv]').forEach(x=>x.classList.toggle('on',x===b));
+  if($('lbList').classList.contains('min')) $('lbMinBtn').click();
+  renderLbList();
+});
+renderLbChips(); renderLbList();
+})();
+</script>
+
 </body>
 </html>
