@@ -459,6 +459,20 @@ body.lb-mode #statusRow,body.lb-mode #filterBtn{display:none!important}
 .lb-rv-row .m{flex:1;min-width:0}
 .lb-rv-row .m div:first-child{font-weight:700}
 .lb-rv-row .m div:last-child{font-size:11.5px;color:var(--sub)}
+/* skip list */
+.lb-skipbar{display:none;padding:7px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.lb-skipbar.on{display:block}
+.lb-sec-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);
+  padding:8px 14px 4px;background:var(--bg);border-bottom:1px solid var(--border)}
+.lb-add{background:var(--blue);color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0}
+.lb-add.done{background:var(--bg);color:var(--sub);border:1.5px solid var(--border)}
+.lb-skip-note{width:100%;margin-top:5px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;
+  padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--f);outline:none}
+.lb-skip-note:focus{border-color:var(--blue)}
+.lb-skip-ic{width:22px;height:22px;border-radius:50%;background:#dc2626;color:#fff;border:2px solid #fff;
+  box-shadow:0 1px 5px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:900;line-height:1}
+.lb-skip-tag{display:inline-block;background:#dc2626;color:#fff;font-size:10px;font-weight:800;border-radius:99px;padding:1px 6px;margin-left:5px;vertical-align:1px}
 </style>
 </head>
 <body>
@@ -625,7 +639,14 @@ body.lb-mode #statusRow,body.lb-mode #filterBtn{display:none!important}
     <div class="lb-list-hdr">
       <button class="t on" data-lbv="streets">Streets</button>
       <button class="t" data-lbv="drops">Uploads</button>
+      <button class="t" data-lbv="skip" id="lbSkipTab">🚫 Skip</button>
       <button class="lb-min-btn" id="lbMinBtn" title="Collapse list">▾</button>
+    </div>
+    <div class="lb-skipbar" id="lbSkipBar">
+      <div class="filter-inner">
+        <span class="filter-ico">🔍</span>
+        <input class="filter-in" id="lbSkipIn" type="search" placeholder="Search an address to skip, e.g. 12 Graham Rd" autocomplete="off" spellcheck="false">
+      </div>
     </div>
     <div class="lb-body" id="lbBody"></div>
   </div>
@@ -3689,6 +3710,8 @@ let lbFilter='all', lbView='streets', lbSel=null;
 let lbFb=null;               // {save(id,doc), del(id), patch(id,fields)}
 let lbPending=null;          // result awaiting review/save
 let lbAlignState=null;       // {img, redPx:[[x,y]...], natW, natH}
+let lbSkips={};              // id -> {_lbSkip,address,suburb,street,note,lat,lng,createdAt}
+let lbSkipLayer=null;
 
 // ─── small helpers ────────────────────────────────────────────
 const pad2=n=>String(n).padStart(2,'0');
@@ -3719,6 +3742,7 @@ function initLbMap(){
   window.__lbMapRef=lbMap;
   lbLayer=L.layerGroup().addTo(lbMap);
   lbPreviewLayer=L.layerGroup().addTo(lbMap);
+  lbSkipLayer=L.layerGroup().addTo(lbMap);
   const upd=()=>lbMap.getContainer().classList.toggle('lb-hide-labels', lbMap.getZoom()<16);
   lbMap.on('zoomend',upd); upd();
   renderLb();
@@ -3785,6 +3809,7 @@ function renderLb(){
       html:'<span class="lb-dlbl" style="border-color:'+l.color+'">'+fmtDate(l.date)+'</span>'})}).addTo(lbLayer);
   });
   $('lbLegend').style.display=lbSel?'none':'';
+  renderSkipMarkers();
   renderLbList(agg, drops);
 }
 function segLen(seg){ let s=0; for(let i=1;i<seg.length;i++) s+=distM(seg[i-1],seg[i]); return s; }
@@ -3799,6 +3824,8 @@ function openStreetPopup(a, at){
   const html='<div style="font-family:var(--f);min-width:170px"><div style="font-weight:800;font-size:14px">'+esc(titleCase(a.n))+'</div>'+
     '<div style="font-size:11px;color:#888;margin-bottom:6px">'+esc(titleCase(a.s.toLowerCase()))+'</div>'+
     a.dates.map((d,i)=>'<div style="font-size:12px;'+(i===0?'font-weight:800':'color:#666')+'">'+(i===0?'✅ Completed ':'Also ')+fmtDate(d.date,true)+'</div>').join('')+
+    (()=>{ const sk=skipsOnStreet(a.n); return sk.length?'<div style="margin-top:6px;padding-top:6px;border-top:1px solid #eee;font-size:12px;font-weight:800;color:#dc2626">🚫 Skip on this street</div>'+
+      sk.map(s=>'<div style="font-size:12px;color:#dc2626">'+esc(titleCase(s.address.toLowerCase()))+(s.note?' <span style="color:#888">— '+esc(s.note)+'</span>':'')+'</div>').join(''):''; })()+
     '</div>';
   L.popup().setLatLng(at).setContent(html).openOn(lbMap);
 }
@@ -3821,14 +3848,19 @@ function renderLbList(agg, drops){
   const body=$('lbBody'); if(!body) return;
   agg=agg||aggregateStreets(visibleDrops()); drops=drops||visibleDrops();
   let h='';
+  const nSk=Object.keys(lbSkips).length;
+  const tab=$('lbSkipTab'); if(tab) tab.textContent='🚫 Skip'+(nSk?' ('+nSk+')':'');
+  $('lbSkipBar').classList.toggle('on',lbView==='skip');
+  if(lbView==='skip'){ renderSkipView(body); return; }
   if(lbView==='streets'){
     const rows=Object.values(agg).sort((a,b)=>b.last.localeCompare(a.last)||a.n.localeCompare(b.n));
     if(!rows.length) h=emptyState();
     rows.forEach(a=>{
       const col=recencyColor(a.last);
+      const sk=skipsOnStreet(a.n).length;
       h+='<div class="lb-row" data-street="'+esc(a.k)+'">'+
         '<span class="lb-sw" style="background:'+col+'"></span>'+
-        '<div class="lb-main"><div class="lb-t">'+esc(titleCase(a.n))+'</div>'+
+        '<div class="lb-main"><div class="lb-t">'+esc(titleCase(a.n))+(sk?'<span class="lb-skip-tag">🚫 '+sk+'</span>':'')+'</div>'+
         '<div class="lb-s">'+esc(titleCase(a.s.toLowerCase()))+(a.dates.length>1?' · '+a.dates.length+' drops':'')+'</div></div>'+
         '<div class="lb-r">'+fmtDate(a.last)+'<div class="lb-s" style="font-weight:600">'+(daysAgo(a.last)===0?'today':daysAgo(a.last)+'d ago')+'</div></div>'+
       '</div>';
@@ -3880,6 +3912,156 @@ function zoomToDrop(id){
   const b=boundsOfSegs(segs); if(b.isValid()) lbMap.fitBounds(b,{padding:[40,40],maxZoom:18});
 }
 
+// ─── SKIP ADDRESSES ───────────────────────────────────────────
+// Addresses not to letterbox (no junk mail signs, owner requests, etc.).
+// Stored in the same "letterbox_drops" collection as docs flagged _lbSkip,
+// so no extra Firestore rules are needed. Shown as red ⛔ pins on the
+// letterbox map and flagged on matching street rows / popups.
+const ABBR={RD:'ROAD',ST:'STREET',AV:'AVENUE',AVE:'AVENUE',CT:'COURT',CR:'CRESCENT',CRES:'CRESCENT',
+  GR:'GROVE',GV:'GROVE',PDE:'PARADE',DR:'DRIVE',PL:'PLACE',HWY:'HIGHWAY',LN:'LANE',TCE:'TERRACE',
+  BVD:'BOULEVARD',BLVD:'BOULEVARD',CL:'CLOSE',WY:'WAY',SQ:'SQUARE',ESP:'ESPLANADE'};
+const skipKey=(a,s)=>(String(a||'').trim()+'|'+String(s||'').trim()).toUpperCase();
+const skipId=(a,s)=>'skip_'+skipKey(a,s).replace(/[^A-Z0-9]+/g,'_').slice(0,140);
+function streetOf(addr){
+  // "2/58 GRAHAM ROAD" → "GRAHAM ROAD"; "12A SMITH ST" → "SMITH STREET"
+  return String(addr||'').toUpperCase().trim().split(/\s+/)
+    .filter((t,i,arr)=>!(i<arr.length-1 && /\d/.test(t))).map(t=>ABBR[t]||t).join(' ');
+}
+function skipsOnStreet(n){
+  const k=String(n||'').toUpperCase().trim();
+  return Object.values(lbSkips).filter(s=>(s.street||streetOf(s.address))===k);
+}
+function isSkipped(a,s){ return !!lbSkips[skipId(a,s)]; }
+function searchProps(q){
+  const toks=q.toUpperCase().replace(/,/g,' ').split(/\s+/).filter(Boolean).map(t=>ABBR[t]||t);
+  if(!toks.length || typeof PROPERTY_DATA==='undefined') return [];
+  const out=[];
+  for(const p of PROPERTY_DATA){
+    const hay=(p.address+' '+p.suburb).toUpperCase().split(/[\s\/]+/);
+    const full=(p.address+' '+p.suburb).toUpperCase();
+    if(toks.every(t=>t.includes('/')?full.includes(t):hay.some(h=>h.startsWith(t)))){
+      out.push(p); if(out.length>=40) break;
+    }
+  }
+  return out;
+}
+async function geocodeSkip(id){
+  const s=lbSkips[id]; if(!s) return;
+  const addr=String(s.address).replace(/^[^\s\/]+\//,''); // drop unit prefix "2/"
+  try{
+    const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=au&q='+
+      encodeURIComponent(addr+(s.suburb?', '+s.suburb:'')+', Victoria'));
+    const d=await r.json();
+    if(d&&d[0]&&lbSkips[id]){
+      const lat=+(+d[0].lat).toFixed(6), lng=+(+d[0].lon).toFixed(6);
+      lbSkips[id].lat=lat; lbSkips[id].lng=lng; renderSkipMarkers(); renderLbList();
+      deferUntilReady(()=>lbFb&&lbFb.patch(id,{lat,lng}).catch(onWriteErr));
+      return true;
+    }
+  }catch(e){ console.warn('skip geocode failed',e); }
+  return false;
+}
+function addSkip(address,suburb){
+  address=String(address||'').trim().replace(/,/g,' ').replace(/\s+/g,' '); suburb=String(suburb||'').trim();
+  if(!address) return;
+  if(!suburb && typeof PROPERTY_DATA!=='undefined'){
+    // typed address — peel a known suburb (and postcode) off the end
+    const subs=[...new Set(PROPERTY_DATA.map(p=>p.suburb.toUpperCase()))].sort((a,b)=>b.length-a.length);
+    const up=address.toUpperCase().replace(/\s+(VIC|3\d{3})$/,'').replace(/\s+(VIC|3\d{3})$/,'');
+    const hit=subs.find(s=>up.endsWith(' '+s));
+    if(hit){ suburb=hit; address=up.slice(0,-hit.length-1).trim(); }
+  }
+  const id=skipId(address,suburb);
+  if(lbSkips[id]){ toast('Already on the skip list'); return; }
+  const doc={_lbSkip:true,address:address.toUpperCase(),suburb:suburb.toUpperCase(),
+    street:streetOf(address),note:'',createdAt:new Date().toISOString()};
+  lbSkips[id]=doc;
+  deferUntilReady(()=>{ if(lbFb) lbFb.save(id,doc).catch(onWriteErr); });
+  $('lbSkipIn').value='';
+  renderLb();
+  toast('🚫 Skipping '+titleCase(address.toLowerCase()));
+  geocodeSkip(id);
+}
+function removeSkip(id){
+  const s=lbSkips[id]; if(!s) return;
+  if(!confirm('Remove '+titleCase(s.address.toLowerCase())+' from the skip list?')) return;
+  delete lbSkips[id]; renderLb();
+  deferUntilReady(()=>lbFb&&lbFb.del(id).catch(onWriteErr));
+  toast('Removed from skip list');
+}
+function setSkipNote(id,note){
+  if(!lbSkips[id]) return;
+  note=String(note||'').trim().slice(0,200);
+  if((lbSkips[id].note||'')===note) return;
+  lbSkips[id].note=note;
+  deferUntilReady(()=>lbFb&&lbFb.patch(id,{note}).catch(onWriteErr));
+  toast('💾 Note saved');
+}
+async function zoomToSkip(id){
+  const s=lbSkips[id]; if(!s||!lbMap) return;
+  if(s.lat==null){ toast('📍 Locating…'); if(!(await geocodeSkip(id))){ toast('Couldn\'t find that address on the map'); return; } }
+  lbMap.setView([s.lat,s.lng],18);
+  if($('lbList').classList.contains('min')===false) setTimeout(()=>lbMap.invalidateSize(true),50);
+}
+function renderSkipMarkers(){
+  if(!lbSkipLayer) return;
+  lbSkipLayer.clearLayers();
+  Object.values(lbSkips).forEach(s=>{
+    if(s.lat==null||s.lng==null) return;
+    L.marker([s.lat,s.lng],{zIndexOffset:1000,icon:L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],
+      html:'<div class="lb-skip-ic">✕</div>'})})
+      .bindPopup('<div style="font-family:var(--f)"><div style="font-weight:800;font-size:13px;color:#dc2626">🚫 Don\'t drop</div>'+
+        '<div style="font-weight:700;font-size:13px">'+esc(titleCase(s.address.toLowerCase()))+'</div>'+
+        '<div style="font-size:11px;color:#888">'+esc(titleCase((s.suburb||'').toLowerCase()))+'</div>'+
+        (s.note?'<div style="font-size:12px;margin-top:4px">'+esc(s.note)+'</div>':'')+'</div>')
+      .addTo(lbSkipLayer);
+  });
+}
+function renderSkipView(body){
+  const q=($('lbSkipIn').value||'').trim();
+  let h='';
+  if(q){
+    const res=searchProps(q);
+    h+='<div class="lb-sec-h">Results'+(res.length>=40?' (first 40)':'')+'</div>';
+    res.forEach(p=>{
+      const done=isSkipped(p.address,p.suburb);
+      h+='<div class="lb-row" style="cursor:default">'+
+        '<div class="lb-main"><div class="lb-t">'+esc(titleCase(p.address.toLowerCase()))+'</div>'+
+        '<div class="lb-s">'+esc(titleCase(p.suburb.toLowerCase()))+(p.type&&p.type!=='-'?' · '+esc(p.type.split(':')[0]):'')+'</div></div>'+
+        '<button class="lb-add'+(done?' done':'')+'" data-skipadd="'+esc(p.address)+'" data-skipsub="'+esc(p.suburb)+'"'+(done?' disabled':'')+'>'+(done?'Skipped':'＋ Skip')+'</button>'+
+      '</div>';
+    });
+    if(!res.some(p=>p.address.toUpperCase()===q.toUpperCase()))
+      h+='<div class="lb-row" style="cursor:default"><div class="lb-main"><div class="lb-t">"'+esc(q)+'"</div>'+
+        '<div class="lb-s">'+(res.length?'Not the one? ':'Not in the property list — ')+'add it as typed (include the suburb)</div></div>'+
+        '<button class="lb-add" data-skipadd="'+esc(q)+'" data-skipsub="">＋ Skip</button></div>';
+  }
+  const list=Object.entries(lbSkips).map(([id,s])=>({id,...s}))
+    .sort((a,b)=>(a.suburb||'').localeCompare(b.suburb||'')||(a.street||'').localeCompare(b.street||'')||a.address.localeCompare(b.address,undefined,{numeric:true}));
+  h+='<div class="lb-sec-h">Skip list · '+list.length+'</div>';
+  if(!list.length) h+='<div class="es" style="padding:24px 20px"><div class="es-i">🚫</div><div class="es-t">No addresses skipped</div>'+
+    '<div class="es-s">Search above to mark houses you shouldn\'t<br>letterbox — they show as ✕ on the map.</div></div>';
+  list.forEach(s=>{
+    h+='<div class="lb-row" data-skipgo="'+esc(s.id)+'" style="align-items:flex-start">'+
+      '<span class="lb-sw" style="background:#dc2626;margin-top:5px"></span>'+
+      '<div class="lb-main"><div class="lb-t">'+esc(titleCase(s.address.toLowerCase()))+'</div>'+
+      '<div class="lb-s">'+esc(titleCase((s.suburb||'').toLowerCase()))+(s.lat==null?' · 📍 tap to locate':'')+'</div>'+
+      '<input class="lb-skip-note" data-skipnote="'+esc(s.id)+'" value="'+esc(s.note||'')+'" placeholder="Reason, e.g. No junk mail sign"></div>'+
+      '<button class="lb-ibtn" data-skipdel="'+esc(s.id)+'" title="Remove" style="color:#dc2626">🗑</button>'+
+    '</div>';
+  });
+  body.innerHTML=h;
+  body.querySelectorAll('[data-skipadd]').forEach(b=>b.onclick=()=>addSkip(b.dataset.skipadd,b.dataset.skipsub));
+  body.querySelectorAll('[data-skipgo]').forEach(r=>r.onclick=e=>{
+    if(e.target.closest('input,button')) return; zoomToSkip(r.dataset.skipgo);
+  });
+  body.querySelectorAll('[data-skipdel]').forEach(b=>b.onclick=()=>removeSkip(b.dataset.skipdel));
+  body.querySelectorAll('[data-skipnote]').forEach(i=>{
+    i.onchange=()=>setSkipNote(i.dataset.skipnote,i.value);
+    i.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); i.blur(); } };
+  });
+}
+
 // ─── FIRESTORE (separate collection) ──────────────────────────
 function showPerm(msg){ const p=$('lbPerm'); if(!p) return; p.textContent=msg||''; p.classList.toggle('on',!!msg); }
 function onWriteErr(e){
@@ -3888,14 +4070,19 @@ function onWriteErr(e){
   else toast('⚠️ Not saved — check connection and try again');
 }
 function applyLbDocs(docs){
-  const next={};
+  const next={}, skips={};
   docs.forEach(d=>{
-    const v=d.data(); if(!v || !v._lbDrop) return;
+    const v=d.data(); if(!v) return;
+    if(v._lbSkip){ skips[d.id]=v; return; }
+    if(!v._lbDrop) return;
     let geo=null; try{ geo=JSON.parse(v.data||'{}'); }catch(e){ console.warn('bad drop geo',d.id); }
     next[d.id]={...v,geo};
   });
-  lbDrops=next;
+  lbDrops=next; lbSkips=skips;
   if(lbSel && !lbDrops[lbSel]) lbSel=null;
+  // keep focus/typing intact in the skip view's note fields
+  const ae=document.activeElement;
+  if(lbView==='skip' && ae && ae.classList && ae.classList.contains('lb-skip-note')){ renderLbChips(); renderSkipMarkers(); return; }
   renderLb();
 }
 window.initLetterboxFB=async function(db){
@@ -4287,6 +4474,7 @@ document.querySelectorAll('[data-lbv]').forEach(b=>b.onclick=()=>{
   if($('lbList').classList.contains('min')) $('lbMinBtn').click();
   renderLbList();
 });
+$('lbSkipIn').addEventListener('input',()=>renderLbList());
 renderLbChips(); renderLbList();
 })();
 </script>
