@@ -366,7 +366,14 @@ body{font-family:var(--f);background:var(--bg);color:var(--text);display:flex;fl
 
 /* ══ TOAST ══ */
 /* Monday form sheet */
-#mfSheet{max-height:60vh}
+#mfSheet{height:92vh;height:92dvh;display:flex;flex-direction:column;padding-bottom:0!important}
+#mfHead{display:flex;align-items:center;gap:10px;padding:10px 14px 10px;border-bottom:1px solid var(--border)}
+#mfHead .mf-t{flex:1;min-width:0}
+#mfHead .mf-t div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mfHead button{background:var(--bg);border:1.5px solid var(--border);border-radius:9px;padding:7px 10px;font-size:12.5px;font-weight:700;cursor:pointer;color:var(--text)}
+#mfWrap{flex:1;position:relative;background:#0b2234}
+#mfFrame{position:absolute;inset:0;width:100%;height:100%;border:0}
+#mfLoad{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;opacity:.7}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(14px);
   background:#111;color:#fff;border-radius:99px;padding:9px 16px;
   font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:all .22s;
@@ -762,17 +769,19 @@ body.lb-mode #statusRow,body.lb-mode #filterBtn{display:none!important}
 
 <!-- MONDAY FORM MODAL -->
 <div class="ov" id="mfOv"></div>
-<div class="sheet" id="mfSheet" style="padding-bottom:max(env(safe-area-inset-bottom),24px)">
+<div class="sheet" id="mfSheet">
   <div class="sh-handle"></div>
-  <div style="padding:14px 18px 0">
-    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:6px" id="mfTitle">Leads Form</div>
-    <div style="font-size:17px;font-weight:700;margin-bottom:2px" id="mfAddr"></div>
-    <div style="font-size:12px;color:var(--sub);margin-bottom:16px" id="mfSuburb"></div>
-    <button id="mfCopy" style="width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:11px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;color:var(--text);margin-bottom:10px">📋 Copy Address</button>
-    <p style="font-size:13px;color:var(--sub);margin-bottom:16px;line-height:1.5">Monday.com forms open in your browser. Copy the address above before opening if you need to paste it into the form.</p>
-    <button id="mfOpen" style="width:100%;background:var(--blue);color:#fff;border:none;border-radius:11px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px">Open Monday Form ↗</button>
-    <button id="mfCloseBtn" style="width:100%;background:none;border:none;color:var(--sub);font-size:13px;font-weight:600;cursor:pointer;padding:8px">Cancel</button>
+  <div id="mfHead">
+    <div class="mf-t">
+      <div style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub)" id="mfTitle">Leads Form</div>
+      <div style="font-size:15px;font-weight:700" id="mfAddr"></div>
+      <div style="font-size:11.5px;color:var(--sub)" id="mfSuburb"></div>
+    </div>
+    <button id="mfCopy" title="Copy address">📋</button>
+    <button id="mfOpen" title="Open in browser">↗</button>
+    <button id="mfCloseBtn">Done</button>
   </div>
+  <div id="mfWrap"><div id="mfLoad">Loading form…</div><iframe id="mfFrame" title="Leads form" allow="clipboard-write"></iframe></div>
 </div>
 
 <!-- MANAGE SECTIONS MODAL -->
@@ -2890,26 +2899,46 @@ $('bBody').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList
 const MF_URL = 'https://forms.monday.com/forms/3251387f6ae313260ae2fbc2197a5962?r=apse2';
 const MF_STATUSES = new Set(['map_lap','drop_email','chase']);
 
+// Prefill keys must match each question's Pre-fill → URL parameter name in the WorkForm settings
+const MF_PARAMS = {address:'address', category:'category', source:'source', date:'date'};
+const MF_CATEGORY = {drop_email:'Chase', chase:'New Contact'}; // map_lap ("Leads") = MAP or LAP → left for agent to pick
+
+function buildMondayUrl(fullAddr, status){
+  const u = new URL(MF_URL);
+  const d = new Date(), pad=n=>String(n).padStart(2,'0');
+  u.searchParams.set(MF_PARAMS.address, fullAddr);
+  if(MF_CATEGORY[status]) u.searchParams.set(MF_PARAMS.category, MF_CATEGORY[status]);
+  u.searchParams.set(MF_PARAMS.source, 'Door Knock');
+  u.searchParams.set(MF_PARAMS.date, d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()));
+  return u.toString();
+}
+
 function openMondayForm(address, suburb, status){
   if(!MF_STATUSES.has(status)) return;
   const stLabel = ST[status]?.label || status;
   const fullAddr = address + (suburb ? ', ' + suburb + ' VIC' : '');
+  const url = buildMondayUrl(fullAddr, status);
   $('mfTitle').textContent = stLabel + ' — Leads Form';
   $('mfAddr').textContent = address || '';
   $('mfSuburb').textContent = suburb ? suburb + ', VIC' : '';
   $('mfCopy').onclick = ()=>{
     navigator.clipboard.writeText(fullAddr).then(()=>{
-      $('mfCopy').textContent='✅ Copied!';
-      setTimeout(()=>{ $('mfCopy').textContent='📋 Copy Address'; },2000);
+      $('mfCopy').textContent='✅';
+      setTimeout(()=>{ $('mfCopy').textContent='📋'; },2000);
     }).catch(()=>toast('Could not copy'));
   };
-  $('mfOpen').onclick = () => { window.open(MF_URL, '_blank'); closeMondayForm(); };
+  $('mfOpen').onclick = () => { window.open(url, '_blank'); closeMondayForm(); };
+  const f=$('mfFrame'); $('mfLoad').style.display='flex';
+  f.onload=()=>{ $('mfLoad').style.display='none'; };
+  f.src = url;
   $('mfOv').classList.add('on');
   $('mfSheet').classList.add('on');
 }
 function closeMondayForm(){
   $('mfOv').classList.remove('on');
   $('mfSheet').classList.remove('on');
+  // clear after slide-out so the next open starts a fresh submission
+  setTimeout(()=>{ $('mfFrame').src='about:blank'; }, 300);
 }
 // ─── FIREBASE ───────────────────────────────────────────────
 async function initFB(){
@@ -3172,7 +3201,7 @@ async function initFB(){
 }
 
 // Monday form close listeners
-$('mfOv').addEventListener('click', closeMondayForm);
+// overlay tap intentionally does not close the form (avoids losing a half-filled lead)
 $('mfCloseBtn').addEventListener('click', closeMondayForm);
 $('msOv').addEventListener('click', closeManageSections);
 $('msCloseBtn').addEventListener('click', closeManageSections);
