@@ -2930,7 +2930,8 @@ function openMondayForm(address, suburb, status){
   $('mfOpen').onclick = () => { window.open(url, '_blank'); closeMondayForm(); };
   const f=$('mfFrame'); $('mfLoad').style.display='flex';
   f.onload=()=>{ $('mfLoad').style.display='none'; };
-  f.src = url;
+  // monday blocks framing of /forms/<token>; the embeddable route is /forms/embed/<token>
+  f.src = url.replace('/forms/', '/forms/embed/');
   $('mfOv').classList.add('on');
   $('mfSheet').classList.add('on');
 }
