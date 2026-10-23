@@ -441,6 +441,22 @@ body.lb-mode #statusRow,body.lb-mode #filterBtn{display:none!important}
 .lb-sel-pill.on{display:flex}
 /* screenshot alignment */
 .lb-align{display:none;position:absolute;inset:0;z-index:600;pointer-events:none}
+.lb-mark{display:none;position:absolute;inset:0;z-index:600;pointer-events:none}
+.lb-mark.on{display:block}
+.lb-mark-top{position:absolute;top:8px;left:8px;right:8px;pointer-events:auto;background:var(--overlay);
+  border:1px solid var(--border);border-radius:12px;padding:9px 11px;box-shadow:0 3px 14px rgba(0,0,0,.18);font-size:12px}
+.lb-mark-top .sub{color:var(--sub);margin-top:6px}
+.lb-mark-modes{display:flex;gap:6px}
+.lb-mark-modes button{flex:1;border:1.5px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;
+  padding:6px 4px;font-size:12px;font-weight:800;cursor:pointer}
+.lb-mark-modes button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.lb-mark-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;max-height:64px;overflow:auto}
+.lb-mark-list span{background:#1d3fbb;color:#fff;border-radius:99px;padding:3px 9px;font-weight:700;font-size:11px}
+.lb-mark-bot{position:absolute;left:8px;right:8px;bottom:10px;pointer-events:auto;display:flex;gap:8px}
+.lb-mark-bot button{flex:1;border:1px solid var(--border);border-radius:10px;padding:11px 6px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.lb-marking .leaflet-overlay-pane *,.lb-marking .leaflet-marker-pane *{pointer-events:none!important}
+.lb-marking .leaflet-container{cursor:crosshair}
+.lb-marking .lb-legend,.lb-marking .lb-toolbar,.lb-marking .leaflet-control-zoom{display:none!important}
 .lb-align.on{display:block}
 .lb-aligning .leaflet-control-zoom,.lb-aligning .lb-legend,.lb-aligning .lb-toolbar{display:none!important}
 .lb-align img{position:absolute;pointer-events:none;opacity:.5;outline:2px dashed #1d3fbb;outline-offset:0}
@@ -610,6 +626,7 @@ body.lb-mode #statusRow,body.lb-mode #filterBtn{display:none!important}
 <div class="panel" id="panel-drops">
   <div class="lb-toolbar">
     <button class="lb-up" id="lbUploadBtn">＋ Upload walk</button>
+    <button class="lb-up" id="lbMarkBtn" style="background:var(--green)">✏️ Mark streets</button>
     <input type="file" id="lbFile" accept=".gpx,.kml,.tcx,.xml,image/*" style="display:none">
     <div class="lb-chips" id="lbChips"></div>
     <div class="lb-sel-pill" id="lbSelPill"></div>
@@ -638,6 +655,26 @@ body.lb-mode #statusRow,body.lb-mode #filterBtn{display:none!important}
       <div class="lb-align-bot">
         <button id="lbAlignCancel" style="background:var(--card);color:var(--text)">Cancel</button>
         <button id="lbAlignDone" style="background:var(--green);color:#fff">✓ Lined up</button>
+      </div>
+    </div>
+    <div class="lb-mark" id="lbMark">
+      <div class="lb-mark-top">
+        <div class="lb-mark-modes">
+          <button class="on" data-lbmode="tap">👆 Tap streets</button>
+          <button data-lbmode="draw">✏️ Draw line</button>
+        </div>
+        <div class="sub" id="lbMarkHint"></div>
+        <div class="lb-find">
+          <input id="lbMarkFind" type="search" placeholder="Jump to a street, e.g. Graham Rd Highett" autocomplete="off">
+          <button class="lb-ibtn" id="lbMarkFindBtn">Go</button>
+        </div>
+        <div class="lb-mark-list" id="lbMarkList"></div>
+      </div>
+      <div class="lb-mark-bot">
+        <button id="lbMarkCancel" style="background:var(--card);color:var(--text)">Cancel</button>
+        <button id="lbMarkUndo" style="background:var(--card);color:var(--text)">↶ Undo</button>
+        <button id="lbMarkLine" style="background:var(--blue);color:#fff;display:none">✓ Finish line</button>
+        <button id="lbMarkDone" style="background:var(--green);color:#fff">Done →</button>
       </div>
     </div>
     <div class="lb-busy" id="lbBusy">Reading streets…</div>
@@ -3779,6 +3816,7 @@ function initLbMap(){
   lbSkipLayer=L.layerGroup().addTo(lbMap);
   const upd=()=>lbMap.getContainer().classList.toggle('lb-hide-labels', lbMap.getZoom()<16);
   lbMap.on('zoomend',upd); upd();
+  lbMap.on('click',e=>{ if(lbMk) markTap(e.latlng); });
   renderLb();
 }
 window.lbOnShow=function(){
@@ -3907,7 +3945,7 @@ function renderLbList(agg, drops){
       h+='<div class="lb-row" data-drop="'+esc(d.id)+'" style="'+(lbSel===d.id?'background:var(--bg)':'')+'">'+
         '<span class="lb-sw" style="background:'+recencyColor(d.date)+'"></span>'+
         '<div class="lb-main"><div class="lb-t">'+fmtDate(d.date,true)+'</div>'+
-        '<div class="lb-s">'+n+' street'+(n===1?'':'s')+(d.distanceM?' · '+fmtLen(d.distanceM):'')+' · '+(d.source==='screenshot'?'📷 screenshot':'📍 GPS file')+'</div></div>'+
+        '<div class="lb-s">'+n+' street'+(n===1?'':'s')+(d.distanceM?' · '+fmtLen(d.distanceM):'')+' · '+(d.source==='manual'?'✏️ marked':d.source==='screenshot'?'📷 screenshot':'📍 GPS file')+'</div></div>'+
         '<div class="lb-act">'+
           '<input type="date" value="'+esc(d.date)+'" data-dropdate="'+esc(d.id)+'" title="Change date">'+
           '<button class="lb-ibtn" data-dropdel="'+esc(d.id)+'" title="Delete" style="color:#dc2626">🗑</button>'+
@@ -4487,12 +4525,156 @@ async function runMatching(pts, meta){
   busy('Reading streets…');
   let osm;
   try{ osm=await fetchOverpass(s-pad,w-pad,n+pad,e+pad); }
-  catch(err){ busy(''); toast('⚠️ Street data server didn\'t respond ('+((err&&err.name==='AbortError')?'timed out':(err&&err.message)||'error')+') — try again in a minute'); return; }
+  catch(err){
+    busy('');
+    const why=(err&&err.name==='AbortError')?'timed out':(err&&err.message)||'error';
+    console.warn('street lookup failed',why);
+    // Don't dead-end: open manual marking with the walk drawn as a guide.
+    startMark(meta.ordered?pts.map(p=>[p.lat,p.lng]):null,meta);
+    toast('⚠️ Street server down ('+why+') — tap the streets along your walk instead');
+    return;
+  }
   const res=matchStreets(pts,osm,{ordered:meta.ordered});
   busy('');
   if(!res.streets.length){ toast('⚠️ No streets matched — '+(meta.ordered?'is this the right file?':'try lining the screenshot up again')); return; }
   lbPending={...meta,...res};
   openReview();
+}
+
+// ─── MANUAL MARKING (no Overpass needed) ──────────────────────
+// Tap mode: tap a street → Nominatim reverse-geocodes the nearest road and
+// returns that road piece's geometry, which is added (tap it again to remove).
+// Draw mode: tap points along a street → "Finish line" → the midpoint is
+// reverse-geocoded for the street + suburb name.
+let lbMk=null;  // {mode, pieces:[{key,n,s,seg}], cur:[], guide, meta}
+let lbMkLayer=null, _nomLast=0;
+function nomReverse(lat,lng,geom){
+  const wait=Math.max(0,_nomLast+1100-Date.now()); _nomLast=Date.now()+wait; // Nominatim: max 1 req/sec
+  return new Promise(r=>setTimeout(r,wait)).then(()=>{
+    const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),10000);
+    return fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&addressdetails=1'+(geom?'&polygon_geojson=1':'')+'&lat='+lat+'&lon='+lng,{signal:ctl.signal})
+      .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .finally(()=>clearTimeout(to));
+  });
+}
+function mkHav(a,b){
+  const R=6371000, toR=Math.PI/180, dLa=(b[0]-a[0])*toR, dLo=(b[1]-a[1])*toR;
+  const h=Math.sin(dLa/2)**2+Math.cos(a[0]*toR)*Math.cos(b[0]*toR)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+const mkLen=seg=>seg.reduce((t,p,i)=>i?t+mkHav(seg[i-1],p):0,0);
+function suburbFromAddr(a){ a=a||{}; return (a.suburb||a.town||a.city_district||a.village||a.city||'').toUpperCase(); }
+function startMark(guide,meta){
+  initLbMap();
+  if(!lbMkLayer) lbMkLayer=L.layerGroup().addTo(lbMap);
+  lbMk={mode:'tap',pieces:[],cur:[],guide:guide||null,meta:meta||null};
+  $('lbMark').classList.add('on');
+  $('panel-drops').classList.add('lb-marking');
+  $('lbList').classList.add('min');
+  setMarkMode('tap');
+  if(guide&&guide.length){ const b=L.latLngBounds(guide); if(b.isValid()) lbMap.fitBounds(b,{padding:[60,60],maxZoom:18}); }
+  setTimeout(()=>lbMap.invalidateSize(true),230);
+  drawMark();
+}
+function endMark(){
+  $('lbMark').classList.remove('on');
+  $('panel-drops').classList.remove('lb-marking');
+  $('lbList').classList.remove('min');
+  if(lbMkLayer) lbMkLayer.clearLayers();
+  lbMk=null; busy('');
+  if(lbMap) setTimeout(()=>lbMap.invalidateSize(true),230);
+}
+function setMarkMode(m){
+  if(!lbMk) return;
+  lbMk.mode=m; lbMk.cur=[];
+  document.querySelectorAll('[data-lbmode]').forEach(b=>b.classList.toggle('on',b.dataset.lbmode===m));
+  $('lbMarkHint').textContent=m==='tap'
+    ? 'Tap each street you did. Tap a blue one again to remove it. Long streets come in pieces — tap each piece.'
+    : 'Tap points along one street, then “Finish line”. Repeat for each street.';
+  $('lbMarkLine').style.display=m==='draw'?'':'none';
+  drawMark();
+}
+function drawMark(){
+  if(!lbMkLayer||!lbMk) return;
+  lbMkLayer.clearLayers();
+  if(lbMk.guide) L.polyline(lbMk.guide,{color:'#111',weight:3,opacity:.5,dashArray:'4,5',interactive:false}).addTo(lbMkLayer);
+  lbMk.pieces.forEach(pc=>L.polyline(pc.seg,{color:'#1d3fbb',weight:8,opacity:.85,interactive:false}).addTo(lbMkLayer));
+  if(lbMk.cur.length){
+    L.polyline(lbMk.cur,{color:'#dc2626',weight:5,opacity:.9,interactive:false}).addTo(lbMkLayer);
+    lbMk.cur.forEach(p=>L.circleMarker(p,{radius:5,color:'#dc2626',fillColor:'#fff',fillOpacity:1,weight:2,interactive:false}).addTo(lbMkLayer));
+  }
+  const names={}; lbMk.pieces.forEach(pc=>{ names[titleCase(pc.n.toLowerCase())]=1; });
+  const k=Object.keys(names);
+  $('lbMarkList').innerHTML=k.length?k.map(n=>'<span>'+esc(n)+'</span>').join(''):'<div class="sub" style="margin:0">No streets yet</div>';
+}
+async function markTap(ll){
+  if(!lbMk) return;
+  if(lbMk.mode==='draw'){ lbMk.cur.push([ll.lat,ll.lng]); drawMark(); return; }
+  busy('Finding street…');
+  try{
+    const d=await nomReverse(ll.lat.toFixed(6),ll.lng.toFixed(6),true);
+    busy('');
+    if(!lbMk) return;
+    const name=(d&&d.address&&d.address.road)||(d&&d.category==='highway'&&d.name)||'';
+    if(!name || !d.geojson || !/LineString/.test(d.geojson.type)){ toast('No street found there — tap closer to the road, or use Draw line'); return; }
+    const key=d.osm_type+d.osm_id;
+    const had=lbMk.pieces.filter(p=>p.key===key);
+    if(had.length){ lbMk.pieces=lbMk.pieces.filter(p=>p.key!==key); drawMark(); toast('Removed '+name); return; }
+    const lines=d.geojson.type==='LineString'?[d.geojson.coordinates]:d.geojson.coordinates;
+    const sub=suburbFromAddr(d.address);
+    lines.forEach(c=>lbMk.pieces.push({key,n:name,s:sub,seg:c.map(q=>[+q[1].toFixed(6),+q[0].toFixed(6)])}));
+    drawMark();
+  }catch(err){ busy(''); toast('⚠️ Couldn\'t look up that street ('+(err.name==='AbortError'?'timed out':err.message)+') — use Draw line'); }
+}
+async function finishLine(){
+  if(!lbMk||lbMk.cur.length<2){ toast('Tap at least 2 points along the street'); return; }
+  const seg=lbMk.cur.map(p=>[+p[0].toFixed(6),+p[1].toFixed(6)]);
+  // midpoint by distance
+  const tot=mkLen(seg); let acc=0, mid=seg[0];
+  for(let i=1;i<seg.length;i++){ const l=mkHav(seg[i-1],seg[i]); if(acc+l>=tot/2){ const t=l?(tot/2-acc)/l:0; mid=[seg[i-1][0]+(seg[i][0]-seg[i-1][0])*t,seg[i-1][1]+(seg[i][1]-seg[i-1][1])*t]; break; } acc+=l; }
+  let name='', sub='';
+  busy('Naming street…');
+  try{ const d=await nomReverse(mid[0].toFixed(6),mid[1].toFixed(6),false); name=(d&&d.address&&d.address.road)||''; sub=suburbFromAddr(d&&d.address); }catch(e){}
+  busy('');
+  if(!lbMk) return;
+  const typed=prompt('Street name for this line:',name);
+  if(typed===null) return;               // keep the points so they can adjust
+  if(!typed.trim()){ toast('Needs a street name'); return; }
+  lbMk.pieces.push({key:'draw'+Date.now(),n:typed.trim(),s:sub,seg});
+  lbMk.cur=[]; drawMark();
+}
+function markUndo(){
+  if(!lbMk) return;
+  if(lbMk.cur.length){ lbMk.cur.pop(); }
+  else if(lbMk.pieces.length){ const k=lbMk.pieces[lbMk.pieces.length-1].key; lbMk.pieces=lbMk.pieces.filter(p=>p.key!==k); }
+  drawMark();
+}
+function markDone(){
+  if(!lbMk) return;
+  if(lbMk.cur.length>=2){ toast('Tap “Finish line” first, or Undo the red points'); return; }
+  if(!lbMk.pieces.length){ toast('Mark at least one street'); return; }
+  const out={};
+  lbMk.pieces.forEach(pc=>{
+    const k=(pc.n+'|'+pc.s).toUpperCase();
+    const st=out[k]||(out[k]={n:pc.n,s:pc.s,len:0,segs:[]});
+    st.len+=mkLen(pc.seg); st.segs.push(pc.seg);
+  });
+  const streets=Object.values(out).map(s=>({...s,len:Math.round(s.len)})).sort((a,b)=>b.len-a.len);
+  const meta=lbMk.meta||{};
+  const guide=lbMk.guide;
+  endMark();
+  lbPending={source:'manual',label:meta.label||'Marked on map',date:meta.date,ordered:false,
+    streets,route:guide?guide.filter((_,i,a)=>i%Math.max(1,Math.ceil(a.length/1500))===0):null,
+    distanceM:streets.reduce((t,x)=>t+x.len,0)};
+  openReview();
+}
+async function markFind(){
+  const q=($('lbMarkFind').value||'').trim(); if(!q) return;
+  try{
+    const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=au&q='+encodeURIComponent(q+', Victoria'));
+    const d=await r.json();
+    if(d&&d[0]) lbMap.setView([+d[0].lat,+d[0].lon],18); else toast('Not found — try adding the suburb');
+  }catch(e){ toast('⚠️ Search failed — check connection'); }
 }
 
 // ─── REVIEW + SAVE ────────────────────────────────────────────
@@ -4511,7 +4693,7 @@ function openReview(){
   const p=lbPending;
   lbLayer.clearLayers();
   $('lbRvDate').value=p.date||todayIso();
-  $('lbRvSub').textContent=(p.source==='screenshot'?'📷 From screenshot':'📍 From GPS file')+' · '+p.streets.length+' street'+(p.streets.length===1?'':'s')+' detected — untick any that weren\'t done';
+  $('lbRvSub').textContent=(p.source==='manual'?'✏️ Marked on map':p.source==='screenshot'?'📷 From screenshot':'📍 From GPS file')+' · '+p.streets.length+' street'+(p.streets.length===1?'':'s')+(p.source==='manual'?' marked':' detected')+' — untick any that weren\'t done';
   $('lbRvList').innerHTML=p.streets.map((st,i)=>
     '<label class="lb-rv-row"><input type="checkbox" checked data-rv="'+i+'">'+
     '<div class="m"><div>'+esc(titleCase(st.n))+'</div><div>'+esc(titleCase((st.s||'').toLowerCase()))+(st.s?' · ':'')+fmtLen(st.len)+'</div></div></label>').join('');
@@ -4555,6 +4737,14 @@ $('lbFindBtn').onclick=findPlace;
 $('lbFindIn').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); findPlace(); } });
 window.addEventListener('resize',()=>{ if(lbAlignState) layoutAlignImg(); });
 $('lbRvSave').onclick=saveReview;
+$('lbMarkBtn').onclick=()=>startMark(null,null);
+$('lbMarkCancel').onclick=()=>{ if(lbMk&&lbMk.pieces.length&&!confirm('Discard the streets you marked?')) return; endMark(); };
+$('lbMarkUndo').onclick=markUndo;
+$('lbMarkLine').onclick=finishLine;
+$('lbMarkDone').onclick=markDone;
+$('lbMarkFindBtn').onclick=markFind;
+$('lbMarkFind').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); markFind(); } });
+document.querySelectorAll('[data-lbmode]').forEach(b=>b.onclick=()=>setMarkMode(b.dataset.lbmode));
 $('lbRvCancel').onclick=closeReview;
 $('lbOv').onclick=closeReview;
 $('lbMinBtn').onclick=()=>{
