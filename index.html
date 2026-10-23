@@ -946,7 +946,8 @@ const safeId=a=>a.replace(/[^a-zA-Z0-9_\-]/g,'_');
 // good enough for a manually-created row.
 const guessStreet=addr=>(addr||'').toUpperCase().trim().replace(/^(?:[A-Z0-9][A-Z0-9\-]*\/)?\d+[A-Z]?[\-]?\d*[A-Z]?\s+/,'').trim();
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)}
+let _toastT=null;
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(_toastT);_toastT=setTimeout(()=>t.classList.remove('on'),/^⚠️/.test(msg)?6000:2200)}
 function sdot(s){const d=$('syncDot');d.className='sync'+(s==='off'?' off':s==='syn'?' syn':'')}
 // mild: the live-push channel (onSnapshot) is blocked but ordinary reads/
 // writes still work fine via HTTPS — saves are NOT actually queued, only
@@ -3727,7 +3728,10 @@ renderBrowser();
 // ═══════════════════════════════════════════════════════════════
 (function(){
 const LB_COL='letterbox_drops';
-const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+const OVERPASS=['https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter'];
 const SNAP_TOL_M=25;          // max distance from street centreline to count a point
 const MERGE_GAP_M=40;         // join covered pieces of a street separated by less than this
 const MIN_PIECE_M=25;         // ignore covered pieces shorter than this (crossings at intersections)
@@ -4212,7 +4216,11 @@ function startScreenshot(file){
     const red=[]; const step=w>700?2:1;
     for(let y=0;y<h;y+=step) for(let x=0;x<w;x+=step){
       const i=(y*w+x)*4, r=data[i], g=data[i+1], b=data[i+2];
-      if(r>170 && g<95 && b<115 && r-g>110 && r-b>90) red.push([x,y]);
+      // red→orange-red route line: hue ≤22° or ≥335°, saturated, bright
+      const mx=Math.max(r,g,b), mn=Math.min(r,g,b), c=mx-mn;
+      if(mx!==r || mx<150 || c/mx<0.5) continue;
+      let hue=60*(((g-b)/c)%6); if(hue<0) hue+=360;
+      if(hue<=22 || hue>=335) red.push([x,y]);
     }
     if(red.length<15){ URL.revokeObjectURL(url); toast('⚠️ Couldn\'t find a red route line in that screenshot'); return; }
     lbAlignState={url,redPx:red,w,h,date:file.lastModified?isoDate(new Date(file.lastModified)):todayIso(),label:file.name||'screenshot'};
@@ -4281,23 +4289,38 @@ async function findPlace(){
 }
 
 // ─── MATCH ROUTE POINTS → STREETS ─────────────────────────────
-async function fetchOverpass(s,w,n,e){
-  const bb=s+','+w+','+n+','+e;
-  const q='[out:json][timeout:25];('+
-    'way["highway"]["name"]["highway"!~"^(footway|path|cycleway|steps|bridleway|motorway|motorway_link|construction|proposed|platform|corridor)$"]('+bb+');'+
-    'relation["boundary"="administrative"]["admin_level"="10"]('+bb+');'+
-    ');out geom;';
+// Streets are required; suburb boundaries are optional (only used to label
+// the suburb), so they're fetched separately and a failure there never
+// blocks the upload. Each query walks the mirror list until one answers.
+let _opGood=0; // index of the last mirror that worked — try it first next time
+async function overpassQuery(q, ms){
+  const order=[...OVERPASS.slice(_opGood),...OVERPASS.slice(0,_opGood)];
   let lastErr;
-  for(const url of OVERPASS){
+  for(const url of order){
     try{
-      const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),30000);
+      const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),ms);
       const r=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal});
       clearTimeout(to);
-      if(!r.ok) throw new Error('Overpass HTTP '+r.status);
-      return await r.json();
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const txt=await r.text();
+      let j; try{ j=JSON.parse(txt); }catch(e){ throw new Error('busy (non-JSON reply)'); }
+      if(j.remark && /runtime error|timed out|out of memory/i.test(j.remark) && !(j.elements||[]).length) throw new Error(j.remark.slice(0,80));
+      _opGood=OVERPASS.indexOf(url);
+      return j;
     }catch(err){ lastErr=err; console.warn('Overpass failed at',url,err); }
   }
-  throw lastErr||new Error('Overpass unavailable');
+  throw lastErr||new Error('unavailable');
+}
+async function fetchOverpass(s,w,n,e){
+  const bb=s+','+w+','+n+','+e;
+  const qStreets='[out:json][timeout:25];'+
+    'way["highway"]["name"]["highway"!~"^(footway|path|cycleway|steps|bridleway|motorway|motorway_link|construction|proposed|platform|corridor)$"]('+bb+');'+
+    'out geom;';
+  const qSubs='[out:json][timeout:20];relation["boundary"="administrative"]["admin_level"="10"]('+bb+');out geom;';
+  const subsP=overpassQuery(qSubs,25000).catch(err=>{ console.warn('suburb lookup skipped',err); return {elements:[]}; });
+  const streets=await overpassQuery(qStreets,30000);
+  const subs=await subsP;
+  return {elements:[...(streets.elements||[]),...(subs.elements||[])]};
 }
 
 // Pure matching step (no network) — exposed for testing.
@@ -4424,7 +4447,7 @@ async function runMatching(pts, meta){
   busy('Reading streets…');
   let osm;
   try{ osm=await fetchOverpass(s-pad,w-pad,n+pad,e+pad); }
-  catch(err){ busy(''); toast('⚠️ Couldn\'t load street data — check connection and try again'); return; }
+  catch(err){ busy(''); toast('⚠️ Street data server didn\'t respond ('+((err&&err.name==='AbortError')?'timed out':(err&&err.message)||'error')+') — try again in a minute'); return; }
   const res=matchStreets(pts,osm,{ordered:meta.ordered});
   busy('');
   if(!res.streets.length){ toast('⚠️ No streets matched — '+(meta.ordered?'is this the right file?':'try lining the screenshot up again')); return; }
