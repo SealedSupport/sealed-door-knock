@@ -4141,6 +4141,25 @@ function onWriteErr(e){
   if(e && e.code==='permission-denied') showPerm('⚠️ Letterbox drops can\'t be saved yet — the Firestore rules need to allow the "letterbox_drops" collection.');
   else toast('⚠️ Not saved — check connection and try again');
 }
+// Local outbox: every saved drop is kept on this device until Firestore
+// confirms it, so a drop saved while the database is unreachable is never
+// lost on reload and uploads itself once the connection is back.
+const LB_OUTBOX='lb_outbox_v1';
+function obAll(){ try{ return JSON.parse(localStorage.getItem(LB_OUTBOX)||'{}'); }catch(e){ return {}; } }
+function obSet(o){ try{ localStorage.setItem(LB_OUTBOX,JSON.stringify(o)); }catch(e){ console.warn('outbox write failed',e); } }
+function obPut(id,doc){ const o=obAll(); o[id]=doc; obSet(o); }
+function obDel(id){ const o=obAll(); if(o[id]){ delete o[id]; obSet(o); } }
+function obMerge(target){
+  Object.entries(obAll()).forEach(([id,v])=>{
+    if(target[id]) return;
+    let geo=null; try{ geo=JSON.parse(v.data||'{}'); }catch(e){}
+    target[id]={...v,geo,_unsynced:true};
+  });
+}
+function lbUpload(id,doc){
+  if(!lbFb) return;
+  lbFb.save(id,doc).then(()=>obDel(id)).catch(onWriteErr);
+}
 function applyLbDocs(docs){
   const next={}, skips={};
   docs.forEach(d=>{
@@ -4150,6 +4169,8 @@ function applyLbDocs(docs){
     let geo=null; try{ geo=JSON.parse(v.data||'{}'); }catch(e){ console.warn('bad drop geo',d.id); }
     next[d.id]={...v,geo};
   });
+  Object.keys(next).forEach(obDel);   // server has it → no longer pending
+  obMerge(next);                      // still-pending local drops stay visible
   lbDrops=next; lbSkips=skips;
   if(lbSel && !lbDrops[lbSel]) lbSel=null;
   // keep focus/typing intact in the skip view's note fields
@@ -4164,6 +4185,8 @@ window.initLetterboxFB=async function(db){
     patch:(id,v)=>trackWrite(setDoc(doc(db,LB_COL,id),v,{merge:true})),
     del:(id)=>trackWrite(deleteDoc(doc(db,LB_COL,id)))
   };
+  // resend anything saved while the database was unreachable
+  Object.entries(obAll()).forEach(([id,v])=>lbUpload(id,v));
   const fetchOnce=async()=>{
     try{ applyLbDocs((await getDocs(collection(db,LB_COL))).docs); return true; }
     catch(e){ if(e&&e.code==='permission-denied') showPerm('⚠️ Letterbox drops can\'t be loaded — the Firestore rules need to allow the "letterbox_drops" collection.'); return false; }
@@ -4718,12 +4741,16 @@ function saveReview(){
     distanceM:p.ordered?p.distanceM:streets.reduce((s,x)=>s+x.len,0),
     streetCount:streets.length,streetNames:streets.map(s=>s.n),
     createdAt:new Date().toISOString(),data:JSON.stringify(geo)};
-  lbDrops[id]={...doc,geo}; // show immediately; the live listener confirms it
-  deferUntilReady(()=>{ if(lbFb) lbFb.save(id,doc).catch(onWriteErr); });
+  lbDrops[id]={...doc,geo,_unsynced:true}; // show immediately; the live listener confirms it
+  obPut(id,doc);
+  deferUntilReady(()=>lbUpload(id,doc));
   lbFilter='all'; lbSel=null; lbView='streets';
   document.querySelectorAll('[data-lbv]').forEach(b=>b.classList.toggle('on',b.dataset.lbv==='streets'));
   closeReview();
-  toast('✅ Saved — '+streets.length+' street'+(streets.length===1?'':'s')+' on '+fmtDate(date,true));
+  const sb=$('syncBanner'), offline=!navigator.onLine || (sb && sb.classList.contains('on') && !sb.classList.contains('mild'));
+  toast(offline
+    ? '💾 Saved on this device — it will upload automatically once the database is reachable'
+    : '✅ Saved — '+streets.length+' street'+(streets.length===1?'':'s')+' on '+fmtDate(date,true));
 }
 
 // ─── WIRING ───────────────────────────────────────────────────
@@ -4758,6 +4785,7 @@ document.querySelectorAll('[data-lbv]').forEach(b=>b.onclick=()=>{
   renderLbList();
 });
 $('lbSkipIn').addEventListener('input',()=>renderLbList());
+obMerge(lbDrops);
 renderLbChips(); renderLbList();
 })();
 </script>
